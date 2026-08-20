@@ -1,409 +1,151 @@
 # 台灣夜市摸麻將：技術與功能說明
 
-## 1. 文件目的
+## 1. 專案與檔案責任
 
-本文件說明「台灣夜市摸麻將」網頁遊戲目前版本的功能規格、技術架構、核心資料結構與主要流程，供後續維護、測試及功能擴充使用。
+本專案是純前端一頁式遊戲，不需要建置工具、套件或後端。牌面使用 Unicode 麻將符號並提供中文 fallback。
 
-## 2. 專案概覽
-
-本遊戲為純前端一頁式網頁遊戲，不需要安裝套件或啟動後端服務，可直接使用現代瀏覽器開啟。
-
-### 技術組成
-
-- HTML：頁面結構、遊戲資訊、棋盤、手牌、規則及 Modal。
-- CSS：桌面／手機響應式排版、麻將牌樣式與動畫。
-- JavaScript：牌組、狀態管理、抽牌、計分、事件及補牌邏輯。
-- Unicode Mahjong Tiles：顯示正式麻將符號，不使用圖片資源。
-
-### 專案檔案
+模式選擇畫面要求玩家輸入名稱：接受中文、英文與數字，trim 前後空白，最長 12 個字元，空白時顯示「請先輸入玩家名稱」且不能開始。名稱保存在 `localStorage.momajohnPlayerName`，並存於整場 `game.playerName`；HUD 與 GAME OVER 成績單皆顯示名稱。「再玩一次」保留名稱和模式，回主選單保留名稱欄內容。
 
 | 檔案 | 用途 |
 |---|---|
-| `index.html` | 頁面語意結構與 UI 容器 |
-| `style.css` | 視覺樣式、responsive layout 與動畫 |
-| `game.js` | 全部遊戲資料與執行邏輯 |
-| `README.md` | 本機執行與簡要遊戲說明 |
-| `TECHNICAL_FUNCTIONAL_SPEC.md` | 本技術與功能說明文件 |
+| `index.html` | 棋盤、HUD、模式選擇、補牌與共用 Modal |
+| `style.css` | 桌面／手機排版、牌面、事件、下注與動畫 |
+| `game-config.js` | `SCORE_CONFIG`、`EVENT_DEFINITIONS`、`BET_DEFINITIONS` |
+| `game.js` | 狀態、摸牌、判定、事件 handler、下注結算與統計 |
+| `README.md` | 執行及自訂事件教學 |
 
-## 3. 執行方式
+`game-config.js` 必須在 `game.js` 前載入。內容與數值放在 config，流程與 effect handler 放在 `game.js`。
 
-直接使用 Chrome、Edge、Firefox 或 Safari 開啟 `index.html` 即可。也可啟動本機靜態伺服器：
+## 2. 模式與牌組
 
-```bash
-python -m http.server 8000
-```
+- 標準模式：34 張普通麻將＋事件牌 A／B，共 36 張；正式摸 15 張，剩餘 21 張補牌。
+- 狂歡模式：34 張普通麻將＋梅／蘭，共 36 張；正式摸 16 張，剩餘 20 張補牌，不抽事件。
+- 三門花色稱萬子、筒子、條子。條子的 internal ID 為相容既有邏輯保留 `suo-1`～`suo-9`。
+- 事件牌 internal ID 為 `event-1`、`event-2`，外觀與名稱都顯示「事件」。
 
-接著開啟 `http://localhost:8000`。
+棋盤、手牌與補牌來源使用同一組 36 張唯一牌；棋盤事件只改 `drawn` 取得狀態，不修改牌資料或建立重複牌。
 
-## 4. 遊戲核心規格
+## 3. 狀態機與每局資料
 
-- 初始可遊玩局數：6 局。
-- 每局棋盤：6 × 6，共 36 格。
-- 標準模式每局正式摸 15 張；狂歡模式每局正式摸 16 張。
-- 每局預設 1x，可在第一張牌前選擇 1x～3x；第一次正式摸牌時才消耗相同數量的剩餘次數。
-- 棋盤、正式手牌與剩餘牌皆來自同一組 36 張唯一牌。
-- 正式摸牌全部結束後，依聽牌狀態決定是否進入補牌。
-- 局數最低為 0、最高為 6；總分最低為 0。
-
-## 5. 麻將牌資料
-
-`TILE_DATA` 集中定義全部麻將資料。每張牌包含唯一 ID、中文名稱、顯示字元，以及花色、字牌群組或特殊牌種類。
-
-### 標準麻將
-
-- 萬子：一萬至九萬，共 9 張。
-- 筒子：一筒至九筒，共 9 張。
-- 索子：一索至九索，共 9 張。
-- 風牌：東、南、西、北，共 4 張。
-- 三元牌：中、發、白，共 3 張。
-
-### 特殊牌
-
-- 機會。
-- 命運。
-
-總數為 36 張且每張唯一。標準牌優先使用 Unicode Mahjong Tile 字元；系統若無法使用常見麻將字型，頁面會切換為中文牌名。
-
-## 6. 遊戲狀態機
-
-### GAME_MODE_CONFIG
-
-模式差異集中於 `GAME_MODE_CONFIG`，避免在流程中散落模式判斷：
-
-| 模式 | 手牌 | 剩餘補牌 | 事件 | 36 張牌組 |
-|---|---:|---:|---|---|
-| 標準模式 | 15 | 21 | 啟用 | 34 張標準牌＋機會＋命運 |
-| 狂歡模式 | 16 | 20 | 停用 | 34 張標準牌＋Unicode 梅＋蘭 |
+狀態包含 `MODE_SELECT`、`READY`、`DRAWING`、`EVENT_CHOICE`、`EVENT_REVEAL`、`BONUS_PENDING`、`BONUS_DRAW`、`ROUND_END`、`GAME_OVER`。`busy` 與 `uiOverlayOpen` 阻止快速連點和 overlay 期間操作。
 
-`game.mode` 是整場設定，每局沿用同一模式。GAME_OVER 的「再玩一次」保留模式；「回主選單」才回到 `MODE_SELECT`。狂歡模式的梅、蘭是普通棋盤牌，可參與連線，但不觸發事件或額外效果。事件一覽在狂歡模式自動隱藏，操作說明、手牌數與 HUD 模式名稱也依設定更新。
-
-`GAME_STATES` 定義九種狀態：
+`createRound()` 固定 `board`、`hand`、`remaining`，並建立 `drawn`、`discarded`、`completedLines`、`activeWaiting`、`announcedWaiting`、`achievements`、倍率、補牌、`activeBets`、`betsSettled`、`everWaited` 等狀態。
 
-| 狀態 | 說明 | 可摸普通牌 |
-|---|---|---:|
-| `MODE_SELECT` | 首次載入或返回主選單時選擇模式 | 否 |
-| `READY` | 初始化或準備階段 | 否 |
-| `DRAWING` | 正式摸牌階段 | 是 |
-| `EVENT_CHOICE` | 選擇接受或丟掉特殊牌 | 否 |
-| `EVENT_REVEAL` | 特殊事件揭曉與結算 | 否 |
-| `BONUS_PENDING` | 正式牌結束後的最終聽牌確認與補牌前提示 | 否 |
-| `BONUS_DRAW` | 依序翻開並檢查三張實際補牌 | 否 |
-| `ROUND_END` | 顯示本局結算 | 否 |
-| `GAME_OVER` | 顯示整場最終結果 | 否 |
+## 4. 新計分系統
 
-狀態檢查用於防止快速連點、重複摸牌、事件重複執行，以及事件期間繼續操作其他麻將。
+數值集中於 `SCORE_CONFIG`。
 
-## 7. 遊戲資料結構
+- 正式連線共 14 條：單局第一條 +10、第二條 +20、第三條及之後每條 +30。
+- 公式：`基本分 × roundMultiplier × lineMultiplier × nextLineDouble`。
+- 萬／筒／條依該局最高級距計算總獎勵：5 張 5、7 張 9、9 張 15，級距不疊加。
+- 即時升級採差額計分：5 張先加 5；7 張只再加 `9-5=4`；9 張只再加 `15-9=6`。差額先算基本值再乘 `roundMultiplier`，因此 3x 時依序為 +15、+12、+18。
+- 四風 +5、三元 +5；狂歡模式梅＋蘭 +3，皆乘 `roundMultiplier`。
+- 標準模式不建立梅蘭進度，也隱藏側欄、手機規則與成績單中的梅蘭資訊。
+- 牌型 milestone 每局只計分一次並乘 `roundMultiplier`。
+- `addScore()` 確保總分最低為 0；事件與下注直接分數不乘倍率。
 
-### 全域狀態
+事件直接 `ADD_SCORE`、`SUB_SCORE`、`RANDOM_SCORE` 控制在 ±5 內，一般事件使用 ±1～±3、較強事件使用 ±4～±5。高影響事件優先透過加減次數、連線倍率、盤面替換／移除或提前結束表現，確保正式連線與牌型是主要得分來源。
 
-`freshGameState()` 建立整場遊戲狀態：
+`completedLines` 是已計分歷史。棋盤事件破壞連線後不刪除，因此同一條線重新補齊不會再次領分；已取得的成就分也不倒扣。
 
-- `score`：目前總分。
-- `totalLines`：整場累計正式連線數。
-- `roundsLeft`：剩餘局數。
-- `roundsPlayed`：已實際開始的總局數。
-- `achievementCount`：整場得分成就觸發次數。
-- `round`：目前局內狀態。
-- `state`：目前狀態機狀態。
-- `busy`：一般摸牌動畫鎖定。
-- `pendingSpecial`：等待選擇或揭曉的特殊牌事件。
+## 5. 遊玩次數 1/N
 
-### 單局狀態
+- `totalAttemptsGranted`：總授予次數，初始 6；補牌或事件加次只增加此值。
+- `attemptsConsumed`：已消耗次數，只會向前增加。
+- `round.attemptStart`：本局開始位置，供進行中維持 1-based 顯示。
 
-`createRound()` 建立每局獨立資料：
+HUD 初始 `1 / 6`；一次結束後下一局 `2 / 6`；若獲得一次則為 `2 / 7`。3x 消耗三次，本局顯示起始位置，下一局分子向前跳三。完整結束本局後，`attemptsConsumed >= totalAttemptsGranted` 才 GAME OVER。
 
-- `board`：隨機排列的 36 張棋盤牌。
-- `hand`：依模式設定產生的 15 或 16 張正式手牌。
-- `remaining`：標準模式 21 張、狂歡模式 20 張補牌來源。
-- `drawIndex`：下一張正式摸牌在 `hand` 中的索引；由 0 起算，每次成功處理一張後加 1。
-- `drawn`：已點選的正式手牌 ID。
-- `discarded`：被玩家丟掉、不參與判定的特殊牌 ID。
-- `completedLines`：本局已計分的連線 ID。
-- `activeWaiting`：目前仍處於聽牌的連線 ID。
-- `announcedWaiting`：已提示過聽牌的連線 ID。
-- `achievements`：本局已計分的收集成就 ID。
-- `roundScore`、`roundLines`：本局分數及連線數。
-- `lineMultiplier`、`nextLineDouble`：連線倍率狀態。
-- `roundMultiplier`：本局正常得分倍率，建立單局時預設 1。
-- `started`：是否已摸第一張正式牌；用於扣除次數與鎖定槓桿。
-- `bonusMissing`、`selectedBonusTiles`、`bonusCandidates`、`bonusResolved`：補牌狀態。
-- `bonusPendingStarted`：本局是否已啟動補牌前最終聽牌提示，用於阻止重複進入 `BONUS_PENDING`／`BONUS_DRAW`。
-- `game.stats`：整場遊戲即時累積的局數、倍率、牌型、聽牌、補牌與事件統計。
+## 6. 聽牌與補牌
 
-## 8. 每局流程
+未完成連線有 5/6 正式取得時形成聽牌。`activeWaiting` 保存有效線，`announcedWaiting` 防止相同線重複 toast，`everWaited` 記錄本局是否曾聽牌供下注判定。
 
-1. 洗牌並產生 6 × 6 棋盤。
-2. 依整場 `game.mode` 取得牌組、手牌數與事件設定。
-3. 標準模式取 15 張手牌／剩餘 21 張；狂歡模式取 16 張／剩餘 20 張。兩個陣列在局開始時即固定，牌堆 UI 不會改動 `remaining`。
-4. 新局直接進入 `DRAWING` 並預設 1x，不強制顯示倍率 Modal。
-5. 第一張牌前可按「開槓桿」設定倍率；設定時不扣次數。
-6. 玩家點擊單一牌堆時，依序取得 `hand[drawIndex]`；完成該張處理後遞增 `drawIndex`。畫面不預先列出全部牌背。
-7. 第一次正式摸牌時依 `roundMultiplier` 扣除次數、增加遊玩統計並鎖定槓桿；鎖定按鈕直接顯示實際 `1x`、`2x` 或 `3x`。
-8. 玩家摸牌後，牌面以短動畫移動到棋盤對應格並亮起。牌堆同步顯示已摸／總數、剩餘張數與「再摸一張／最後一張／本局摸牌完成」。
-9. 執行連線、成就與聽牌判定。
-10. 若為機會或命運，進入事件選擇流程；事件期間牌堆停用。
-11. 本模式的 15 或 16 張全部摸完後，再執行一次最終聽牌刷新；特殊牌若位於最後一張，會先完成事件選擇、揭曉及玩家按下繼續。
-12. 若 `activeWaiting` 為空，直接顯示本局結算；若仍有聽牌，從 `activeWaiting` 建立 `bonusMissing` 並進入 `BONUS_PENDING`。
-13. `BONUS_PENDING` 再次高亮有效聽牌線，顯示約 1.6 秒的最終聽牌確認與缺牌內容，結束後才開啟既有 `BONUS_DRAW` Modal。
-14. 補牌結束後顯示本局結算。
-15. 只有目前局完整結束後才依剩餘次數決定下一局或 `GAME_OVER`。
+一般摸牌後，`updateWaitingLines()` 先保存 `previousWaitingIds`，再重算 `currentWaitingIds`。只有 `currentWaitingIds - previousWaitingIds` 且尚未存在於 `announcedWaiting` 的 `newWaitingLines` 才播放一般聽牌高亮與 toast；持續維持 5/6 的線不會重播。完成 6/6 的線會在正式連線計分後離開 `activeWaiting`，不再播放聽牌效果。
 
-### 正式摸牌 UI
+`BONUS_PENDING` 是獨立的最終確認流程，直接依結束時的完整 `activeWaiting` 使用 `final-waiting-hit`／`final-waiting-gap` 再次高亮，不受一般 `newWaitingLines` 或 `announcedWaiting` 防重複規則限制。
 
-- 桌面與手機都使用同一個 CSS 牌堆，透過三層牌背營造厚度，不使用圖片資源。
-- 剩餘張數降至 4 張以下、1 張及 0 張時，分別切換較薄、單張及空牌堆樣式。
-- 手機牌堆維持至少約 68 × 88 px 的觸控區域，配置於棋盤後方、說明資訊之前。
-- `busy`、狀態機及事件 Overlay 共同阻止快速連點與事件期間繼續摸牌。
-- 補牌 Modal 與 `round.remaining` 完全獨立，不受正式牌堆視覺及 `drawIndex` 影響。
+正式牌結束後若仍聽牌，先進入 `BONUS_PENDING`，再從 `remaining` 的 20／21 張選三張。命中任何缺牌會讓 `totalAttemptsGranted` +1。補牌不加入 `drawn`、不觸發事件、不計算正式連線或成就。
 
-## 9. 連線系統
+補牌牌背、普通牌與事件牌都保留同一個 `.bonus-tile` button 容器，桌面與手機統一使用 `aspect-ratio: 3 / 4`。`revealButton()` 只切換容器內的內容與 revealed 狀態，不再移除 `.bonus-tile` class；grid 欄寬、列高及其他牌的位置不因翻牌改變。Unicode 符號及中文字／事件 fallback 限制在容器約 90% 內並保持置中。
 
-`buildLines()` 建立 14 條固定連線：6 橫、6 直及 2 條對角線。每條線均包含唯一 line ID 及六個棋盤索引；`completedLines` 用於避免重複計分。
+## 7. 單一事件系統
 
-| 本局完成順序 | 基本分數 |
-|---|---:|
-| 第一條 | +1000 |
-| 第二條 | +1500 |
-| 第三條及之後 | 每條 +2000 |
+標準模式兩張事件牌共用 `EVENT_DEFINITIONS`。事件至少包含 `id`、`title`、`story`、`triggerType`、`weight`、`effectType`、`value`、`displayEffect`、`enabled`；CHOICE 另有 `options`。
 
-正式連線的完整公式為：
+- `DIRECT`：揭曉故事後立即呼叫 handler。
+- `CHOICE`：揭曉後顯示 options，玩家選擇後呼叫 option 的 handler。
+- `enabled: false` 不參與抽取或機率計算。
+- 機率：`event.weight ÷ 所有 enabled event weight 總和 × 100%`。
 
-`基本分數 × roundMultiplier × lineMultiplier × nextLineDouble`
+`EVENT_EFFECT_HANDLERS` 支援：`ADD_SCORE`、`SUB_SCORE`、`ADD_ROUNDS`、`SUB_ROUNDS`、`DOUBLE_NEXT_LINE`、`DOUBLE_FUTURE_LINES`、`HALVE_ROUND_SCORE`、`END_ROUND`、`END_GAME`、`RANDOM_SCORE`、`REPLACE_DRAWN_TILE`、`REMOVE_DRAWN_TILE`、`NONE`。流程不以 event ID 寫特殊分支。
 
-事件倍率會套用在基本分數上：
+### 五條誤
 
-- 「下一條正式連線 ×2」只消耗於下一條新完成連線。
-- 「本局之後正式連線 ×2」持續至該局結束。
-- 若兩者同時存在，可同時套用。
+`REPLACE_DRAWN_TILE` 檢查五條（`suo-5`）是否正式取得。沒有則顯示「五條根本還沒出現」；有則從尚未取得的一條至九條隨機選一張，對 `drawn` 執行 delete/add，讓五條熄滅、新條子亮起。牌組和棋盤陣列不變。完成後重新判定連線、成就與聽牌，歷史得分不倒扣。
 
-## 10. 收集成就與分數
+### 故意不小心
 
-### 花色收集
+`REMOVE_DRAWN_TILE` 從已正式取得的普通麻將（排除事件牌）隨機選一張，從 `drawn` 移除並更新棋盤及聽牌。已計分連線、成就及 `completedLines` 不清除。
 
-萬、筒、索分開計算：
+## 8. 槓桿與下注
 
-| 單一花色數量 | 得分 |
-|---|---:|
-| 達到 5 張 | +200 |
-| 達到 7 張 | 再 +300 |
+主介面只有「下注」入口。大型下注 Modal 內的「本局倍率」是子項目，單選 1x／2x／3x；「額外下注」可複選。設定儲存在 `round.roundMultiplier` 與 `round.activeBets`。第一張牌前可修改，`round.started` 後按鈕顯示「下注已鎖定」，HUD 仍顯示倍率與下注數量。
 
-單一花色達到 7 張時基本分合計為 500 分。三個花色的門檻可各自觸發，並乘上本局 `roundMultiplier`。
+`BET_DEFINITIONS` 包含 `id`、`title`、`description`、`reward`、`penalty`、`conditionType`、`conditionValue`、`enabled`。
 
-### 字牌收集
+| 下注 | 成功條件 | 成功 | 失敗 |
+|---|---|---:|---:|
+| 相信國聚 | 東南西北中發白全部正式取得 | +30 | -30 |
+| 我一定會連！ | 至少 1 條正式連線 | +15 | -10 |
+| 我要聽牌 | 本局曾形成一次 5/6 聽牌 | +10 | -5 |
+| 豪賭三線 | 至少 3 條正式連線 | +50 | -20 |
 
-- 四風：東、南、西、北全部取得，+500。
-- 三元：中、發、白全部取得，+500。
+下注只在 `ROUND_END` 由 `settleBets()` 結算一次。正常結束、`END_ROUND`、`END_GAME` 都先依當下盤面結算。下注分數不乘倍率，扣分經 `addScore()`。
 
-每個門檻在同一局最多計分一次，使用 `achievements` 集合去除重複。四風、三元及花色成就皆乘上局前倍率；事件直接加減分不乘局前倍率。
+### 下注資格與最大風險
 
-## 11. 即時提示系統
+`betPenalty()` 一律以 `Math.abs(bet.penalty)` 取得單項最大扣分；無論 config 使用正數或負數 penalty 都能正確判定。`selectedBetRisk(activeBetIds)` 合計所有已選下注的 penalty 絕對值。
 
-`notifyScore()` 建立非阻塞式 toast：
+- 單項 `penalty > game.score` 時該 checkbox disabled，顯示門檻、目前分數及「分數不足」。
+- 每次勾選即重新計算 `selectedBetRisk`；若加入該項會讓總風險超過 `game.score`，該組合不允許成立。
+- Modal 即時顯示目前分數、最大可能損失、下注後最低可能剩餘。
+- 倍率只受剩餘遊玩次數限制，不計入分數風險。
+- 資格只在第一張牌前判定；下注鎖定後，事件途中扣分不取消既有下注。局末仍經 `addScore()`，因此總分最低為 0。
 
-- 從棋盤附近出現，微幅放大及上浮。
-- 約 1.5 秒後淡出並移除。
-- 多個提示垂直堆疊，不會互相覆蓋。
-- 一般得分和聽牌使用不同視覺樣式。
+## 9. HUD、Modal 與 Responsive UI
 
-提示內容包含連線、花色門檻、四風、三元與聽牌。
+HUD 顯示玩家名稱、模式、總分、本局分數、遊玩次數、倍率與下注數量；六顆局數燈號已移除。手機 HUD 分為玩家／模式、超大總分、次要資訊三層，總分使用約 29～37px responsive 字級，明顯大於本局、次數、倍率和下注。標準模式顯示「事件一覽」，狂歡模式隱藏。
 
-## 12. 聽牌系統
+共用 Modal 分為固定 `modal-header`、可捲動 `modal-scroll-content`、固定 `modal-footer`。手機最大高度使用 `94dvh`，中段設 `overflow-y: auto; min-height: 0`，因此成績單很長時「再玩一次」與「回主選單」仍可操作，body 不跟著內容捲動。
 
-`currentWaitingLines()` 檢查所有未完成連線。當一條線六格中已有五格正式取得，即為聽牌。
+Toast 系統接受獨立 `type` 與 `duration`。正式連線、聽牌及一般狀態維持約 1.5 秒；萬／筒／條 milestone、四風、三元與梅蘭等由 `awardOnce()` 產生的 achievement toast 使用約 2.5 秒。toast 仍垂直堆疊，容器限制最大可視高度以避免超出 viewport。
 
-- `activeWaiting` 保存目前有效聽牌。
-- `announcedWaiting` 保存本局已通知過的聽牌 line ID。
-- 同一條線只在第一次形成聽牌時提示。
-- 正式完成後會從目前聽牌狀態移除。
-- 同時產生多條新聽牌時，顯示「雙聽」或「聽牌 ×N」。
-- 棋盤對應連線會短暫發光。
+桌面版在 `min-width: 760px` 使用獨立緊湊規則：縮減 body、側欄、卡片、按鈕、棋盤與摸牌區的 padding／gap／字級；棋盤寬度以 `calc((100dvh - 230px) * .78)` 約束，為摸牌區和安全間距預留垂直空間。目標是在 1920×1080 與 1366×768、瀏覽器 100% zoom 時讓 HUD、棋盤、摸牌區及主要按鈕同畫面可見，不影響 759px 以下手機尺寸。
 
-一般摸牌途中的「聽牌 toast」與補牌前的「最終聽牌確認」用途不同：
+## 10. 統計與成績單
 
-- 一般 toast 是非阻塞提示，仍以 `announcedWaiting` 防止同一條線反覆通知。
-- 最終聽牌確認在正式手牌全部完成後固定依 `activeWaiting` 與 `bonusMissing` 顯示，不查詢 `announcedWaiting`，因此先前已提示過的有效聽牌仍會再次明確確認。
-- 最終提示期間狀態為 `BONUS_PENDING`，所有遊戲操作均鎖定；五個已取得格會 pulse，缺牌格使用更明顯的邊框與閃爍。
+`game.stats` 仍即時維護完整資料，但 GAME OVER 僅顯示四區：總成績、牌型成就、聽牌與補牌、事件／下注總損益。標題由 `game.playerName` 產生「{玩家名稱}的成績單」，空值 fallback 為「玩家的成績單」。
 
-## 13. 補牌機制
+淨損益使用 `formatSignedScore()` 統一顯示正數 `+N`、零 `0`、負數 `-N`：
 
-本模式的正式手牌全部摸完後，先刷新最終 `activeWaiting`。若仍至少存在一條 5/6 聽牌，先進入 `BONUS_PENDING` 播放最終聽牌確認，再進入獨立的 `BONUS_DRAW` Modal。
+- `eventNetProfit = eventScoreGain - eventScoreLoss`
+- `betNetProfit = betScoreGain - betScoreLoss`
 
-1. 記錄所有有效聽牌缺少的牌 ID，重複缺牌由 `Set` 自動去除。
-2. Modal 頂端直接使用 `bonusMissing` 顯示目前所聽牌的 Unicode 符號與中文名稱。
-3. 將本局 `round.remaining` 全部以牌背呈現：標準模式 21 張、狂歡模式 20 張。
-4. 玩家自行選擇任意 3 張；每張點選後翻開、加上 selected 樣式且不可重選。
-5. 選滿三張後鎖定其他牌，三張成為 `selectedBonusTiles` 及實際 `bonusCandidates`。
-6. 任一張符合 `bonusMissing` 即成功；可高亮多張命中牌，但每局最多增加 1 次。
-7. 成功或失敗結果留在補牌 Modal 內短暫顯示，再進入本局結算。
+下注統計記錄規則原始 reward／penalty，而非 `addScore()` 因總分最低 0 所截斷的實際變化，因此負損益仍是真實值。
 
-補牌只判定是否增加局數，不加入 `drawn`、不亮中央棋盤、不完成正式連線、不增加 `totalLines` 或 `roundLines`、不計算連線或收集成就，也不觸發連線倍率。補牌抽到機會／命運時只顯示於本次補牌結果，不顯示接受／丟掉選項、不觸發任何特殊事件，且不改變中央棋盤狀態。
+`game.stats` 即時維護：
 
-## 14. 機會與命運流程
+- 牌型：`wan5/7/9Count`、`tong5/7/9Count`、`tiao5/7/9Count`、四風、三元、梅蘭。
+- 事件：`eventTriggeredCount`、`directEventCount`、`choiceEventCount`、事件分數、加次與提前結束。
+- 棋盤事件：`boardReplaceEventCount`、`boardRemoveEventCount`。
+- 下注：`betsPlaced`、`betsWon`、`betsLost`、`betScoreGain`、`betScoreLoss`，及每個 bet ID 的 `played/won/lost`。
+- 既有倍率、連線、成就、聽牌、補牌和最高單局統計。
 
-特殊牌只存在於標準模式，並占用本局 15 張中的一次摸牌。
+牌型區只有狂歡模式顯示梅蘭齊聚次數。原始事件、下注及倍率細項保留在 stats 供邏輯使用，但不在精簡成績單展開。
 
-### 玩家丟掉
+## 11. 維護與驗證
 
-- 特殊牌加入 `discarded`。
-- 棋盤格取消正式取得狀態。
-- 不觸發事件、不改變分數或局數。
-- 不參與連線、聽牌或成就。
-
-### 特殊牌棋盤視覺狀態
-
-- `tile-unclaimed`：尚未正式取得，降低亮度與飽和度並弱化邊框。
-- `tile-acquired`：正式摸到並接受事件，提升亮度、增加光暈、顯示勾號及短暫啟用動畫。
-- `tile-discarded`：正式摸到後選擇丟掉，以灰階、低透明度及叉號顯示。
-- 機會使用「？」與明亮藍綠牌面；命運使用「★」與神秘紫色牌面。
-- 上述 class 由 `drawn` 與 `discarded` 遊戲資料決定；補牌不修改這些集合。
-
-### 玩家接受
-
-1. 狀態切換為 `EVENT_REVEAL`。
-2. 先顯示約 0.7 秒的決定動畫。
-3. 使用 weighted random 選出事件。
-4. 執行事件效果並顯示名稱、故事與實際效果。
-5. 玩家按「繼續」後返回正常流程，或依事件結束本局／整場遊戲。
-
-## 15. 加權事件系統
-
-事件物件包含 `id`、`title`、`story`、`effectType`、`value` 與 `weight`。`weightedRandom()` 依全部事件權重總和抽選；`EVENT_EFFECT_HANDLERS` 根據 `effectType` 執行效果，事件 UI 不直接包含效果判斷。
-
-### 機會事件
-
-| 事件 | 效果 | Weight |
-|---|---|---:|
-| 老闆今天心情很好 | +200 分 | 20 |
-| 老闆算錯錢 | +500 分 | 15 |
-| 隔壁攤不玩了 | +2 局 | 5 |
-| 免費再來一次 | +1 局 | 15 |
-| 老闆偷偷放水 | +800 分 | 8 |
-| 夜市廣播抽中你 | +1000 分 | 5 |
-| 好運連線 | 下一條正式連線 ×2 | 8 |
-| 神秘紅包 | 隨機 +300～+1000 分 | 10 |
-| 珍奶加料不用錢 | +300 分 | 18 |
-
-### 命運事件
-
-| 事件 | 效果 | Weight |
-|---|---|---:|
-| 手滑掉進水溝 | -300 分 | 18 |
-| 老闆抓到你偷看 | -500 分 | 15 |
-| 隔壁高手來亂 | 本局分數減半 | 10 |
-| 神秘大獎 | +1500 分 | 8 |
-| 夜市神明保佑 | +2 局 | 5 |
-| 老闆突然加碼 | 本局後續正式連線 ×2 | 7 |
-| 停電 | 立即結束本局 | 6 |
-| 大雨來了 | 失去 1 局 | 9 |
-| 隔壁瓦斯桶爆炸 | 立即結束整場遊戲 | 1 |
-| 命運逆轉 | +3 局 | 3 |
-| 錢包躲在口袋裡 | +700 分 | 12 |
-| 人潮中被扒走點數 | -800 分 | 5 |
-
-瓦斯桶爆炸在目前命運事件權重總和中約占 1%，屬極低機率事件。
-
-## 16. 分數與局數安全限制
-
-- 所有分數變動經 `addScore()` 處理，確保總分不低於 0。
-- 增加局數使用最大值 6 限制。
-- 減少局數使用最低值 0 限制。
-- 選倍率時只修改 `roundMultiplier`；第一次正式摸牌時才扣次數，`round.started` 防止重複扣除。
-- 補牌成功及特殊事件是唯一增加局數的來源。
-
-## 17. 遊戲結束與重設
-
-當剩餘局數為 0，且目前正式摸牌、特殊事件與補牌流程皆已完成後，進入 `GAME_OVER`。最終畫面顯示總分、總連線數、完成成就數量及玩過的總局數。
-
-「再玩一次」會清除成績但保留目前 `game.mode`；只有「回主選單」會清除模式並返回模式選擇畫面。遊戲途中返回主選單會先要求確認。
-
-## 18. Responsive UI
-
-### 桌面版
-
-- 左側為遊戲資訊與規則側欄。
-- 右側為主要 6 × 6 棋盤。
-- 正式手牌在下方橫向排列；補牌使用獨立大型 Modal。
-- 棋盤寬度同時受到 viewport 高度限制，以降低 1080p 畫面的捲動需求。
-
-### 手機直向版
-
-- 頂端使用精簡且可黏附的 HUD。
-- HUD 顯示總分、本局分數、總連線與六個局數燈號。
-- 棋盤置於 HUD 下方。
-- 正式手牌依模式排列；補牌 Modal 使用 5 欄及內部捲動。
-- 成就進度與得分規則改為可收合區塊。
-
-## 19. 動畫與操作鎖定
-
-### 非阻塞動畫
-
-- 普通翻牌及移動：約 0.32 秒。
-- 棋盤亮牌：約 0.32 秒。
-- 得分及聽牌 toast：約 1.5 秒。
-
-### 阻塞狀態
-
-機會／命運選擇、事件揭曉、BONUS_DRAW、本局結算及 GAME_OVER 期間禁止摸其他牌。另以 `busy` 避免普通牌移動動畫期間快速連點。
-
-## 20. 已驗證項目
-
-- JavaScript 語法正確。
-- 36 張牌 ID 全部唯一。
-- 14 條連線定義正確。
-- 前三條連線依序計算 1000、1500、2000。
-- 已完成連線不會重複得分。
-- 花色 5 張及 7 張門檻正確且不重複。
-- 四風與三元各加 500。
-- 5/6 聽牌判定正確。
-- 六局只各扣除一次。
-- 局數不高於 6，分數不低於 0。
-- 丟掉的特殊牌不參與正式連線。
-- 補牌 Modal 顯示 `bonusMissing` 及 `round.remaining` 的完整 20／21 張牌背，由玩家自行選三張。
-- 補牌不修改正式分數、連線及已摸牌集合。
-- 補牌中的機會／命運不觸發事件或改變中央棋盤狀態。
-- 機會事件共 9 種，命運事件共 12 種。
-- 所有 JavaScript 所需 UI ID 均存在於 HTML。
-
-## 21. 整場統計與成績單
-
-`game.stats` 在各行為真正發生時立即更新，不在 GAME_OVER 時反推。統計包含：
-
-- 總分、總連線、實際遊玩局數及總消耗次數。
-- 1x、2x、3x 使用局數。
-- 萬／筒／索各自達到 5 張及 7 張的次數。
-- 四風、三元及總成就數。
-- 新形成的聽牌線數、進入補牌次數、補牌成功次數、成功率及實際增加次數。
-- 機會／命運的摸到、接受及丟掉次數。
-- 事件實際增加次數、事件加分、事件扣分及是否因事件提前 GAME_OVER。
-- 最高單局分數及最高單局連線。
-
-事件或補牌增加次數時，統計記錄受上限 6 限制後的「實際增加量」。補牌已命中但當下為 6 次時，成功次數仍增加，實際增加次數則為 0。
-
-GAME_OVER Modal 使用兩欄卡片式「夜市摸麻將成績單」，手機改為單欄。成績單頂端顯示遊戲模式及本模式每局摸牌數，並分為總成績、牌型成就、聽牌與補牌、機會／命運及倍率統計。狂歡模式不顯示不存在的機會／命運區塊。內容超過畫面時只在 Modal 內捲動。
-
-## 22. 事件一覽
-
-主介面提供「機會／命運事件一覽」按鈕。僅在非忙碌的 `DRAWING` 狀態開啟，作為只讀 UI overlay，不改變正式 game state、分數、次數、事件資料或權重；關閉後繼續原本遊戲。
-
-每個事件顯示名稱、故事、效果、weight 與即時計算機率。機會和命運分別使用各自事件池的權重總和：
-
-`顯示機率 = event.weight ÷ 同類事件 weight 總和 × 100%`
-
-畫面顯示到小數點後一位。隨機分數、立即結束本局與立即 GAME OVER 等效果使用明確文字，危險事件另有警告樣式。
-
-## 23. 已知限制
-
-- Unicode 麻將外觀會依作業系統與字型略有差異。
-- 已提供中文 fallback，但仍建議在實際目標 Android、iPhone 與 Windows 裝置進行視覺驗收。
-- 遊戲資料僅存在瀏覽器記憶體中，重新整理頁面後會重置。
-- 專案沒有後端、帳號、排行榜、資料庫、多人連線及跨裝置同步。
-- 目前沒有音效系統，因此聽牌與事件僅使用視覺提示。
-
-## 24. 後續維護建議
-
-- 新增事件時，優先擴充 `CHANCE_EVENTS` 或 `DESTINY_EVENTS`，不修改 UI 流程。
-- 新增事件效果種類時，在 `EVENT_EFFECT_HANDLERS` 加入對應 handler。
-- 修改計分時，同步更新側欄、手機規則區及本文件。
-- 修改狀態流程時，確認所有可操作函式均先檢查 `GAME_STATES`。
-- 若日後加入自動化測試，可將純規則函式拆到獨立模組，以便直接進行單元測試。
+- 新增使用既有 effectType 的事件只改 `game-config.js`；新 effectType 才擴充 `EVENT_EFFECT_HANDLERS`。
+- 新增使用既有 conditionType 的下注只改 config；新 conditionType 才擴充 `betConditionMet()`。
+- 棋盤事件測試需確認牌 ID 唯一、歷史 `completedLines` 不清除、得分不倒扣。
+- 目標裝置應實測 Unicode 字型、iPhone Safari 動態工具列、Android 直立 Modal 捲動與快速連點鎖定。
