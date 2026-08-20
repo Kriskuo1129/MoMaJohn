@@ -20,66 +20,28 @@
     </div>
   </section>
   <main id="game-shell" class="game-shell hidden">
-    <header class="mobile-hud" aria-label="遊戲資訊">
-      <div class="mobile-identity"><strong id="mobile-player-name">玩家</strong><span id="mobile-mode-label">標準</span></div>
-      <div class="mobile-total"><small>總分</small><strong id="total-score">0</strong></div>
-      <div class="mobile-substats"><span>本局 <b id="round-score">0</b></span><span>次數 <b id="rounds-left">1 / 6</b></span><span>倍率 <b id="mobile-multiplier">×1</b></span><span id="mobile-bet-count">下注 0</span><span class="mobile-lines">連線 <b id="total-lines">0</b></span></div>
+    <header class="game-hud" aria-label="遊戲資訊">
+      <section class="hud-score-panel">
+        <div class="hud-identity"><strong id="player-display">玩家</strong><span id="mode-display">標準</span></div>
+        <div class="hud-total"><small>總分</small><strong id="total-score">0</strong></div>
+        <div class="hud-substats"><span>本局 <b id="round-score">0</b></span><span>遊玩次數 <b id="rounds-left">1 / 6</b></span></div>
+      </section>
+      <button id="round-status-button" class="round-status-button" type="button"><small>ROUND STATUS</small><strong>本局狀態</strong><span>查看進度 →</span></button>
     </header>
 
-    <div class="desktop-layout">
-      <aside class="sidebar">
-        <div class="brand"><span id="mode-label">標準模式</span><h1>夜市摸麻將</h1><small>玩家：<b id="desktop-player-name">玩家</b></small></div>
-        <section class="desktop-stats">
-          <div><small>總分</small><strong id="desktop-score">0</strong></div>
-          <div><small>本局分數 <em id="desktop-multiplier">×1</em></small><strong id="desktop-round-score">0</strong></div>
-          <div><small>總連線</small><strong id="desktop-lines">0</strong></div>
-          <div><small>遊玩次數</small><strong id="desktop-rounds">1 / 6</strong><small id="desktop-bet-count">🎯 0</small></div>
-        </section>
-        <details class="info-card progress-card" open>
-          <summary>本局狀態／成就進度</summary>
-          <div id="progress-list" class="progress-list"></div>
-        </details>
-        <details class="info-card scoring-card" open>
-          <summary>得分方式</summary>
-          <div class="rules-list">
-            <p id="mode-rule"><b>模式</b><span>每局 15 張，包含事件牌</span></p>
-            <p><b>連線</b><span>第 1 條 +10<br>第 2 條 +20<br>第 3 條起每條 +30</span></p>
-            <p><b>花色收集</b><span>萬／筒／條取最高級距、不累加<br>5 張 5，7 張 9，9 張 15</span></p>
-            <p><b>四風／三元</b><span>東南西北 +5<br>中發白 +5</span></p>
-            <p id="flower-rule"><b>狂歡花牌</b><span>梅蘭齊聚 +3</span></p>
-          </div>
-        </details>
-        <button id="event-guide-button" class="guide-button" type="button">事件一覽</button>
-        <button id="leverage-button" class="leverage-button" type="button">下注</button>
-        <button id="main-menu-button" class="menu-button" type="button">回主選單</button>
-      </aside>
-
-      <section class="play-area">
-        <div class="board-head"><span id="round-label">第 1 局</span><b id="state-badge">準備摸牌</b><b id="multiplier-badge">×1</b><span>已摸 <b id="draw-count">0</b> / <b id="hand-size">15</b></span></div>
-        <div id="board" class="board" role="grid" aria-label="六乘六麻將對獎盤"></div>
-        <p id="message" class="message" aria-live="polite">選一張牌，開始本局</p>
-        <section class="draw-zone" aria-labelledby="draw-zone-title">
-          <div class="draw-zone-copy">
-            <h2 id="draw-zone-title">摸牌區</h2>
-            <p id="draw-prompt">點擊牌堆開始本局</p>
-            <strong id="draw-progress">已摸 0 / 15</strong>
-            <span id="draw-remaining">剩餘 15 張</span>
-          </div>
-          <button id="draw-stack" class="draw-stack stack-thick" type="button" aria-label="牌堆，剩餘 15 張">
-            <span class="stack-layer stack-layer-back" aria-hidden="true"></span>
-            <span class="stack-layer stack-layer-middle" aria-hidden="true"></span>
-            <span class="stack-face" aria-hidden="true"></span>
-          </button>
-        </section>
+    <section class="play-area">
+      <div id="board" class="board" role="grid" aria-label="六乘六麻將對獎盤"></div>
+      <p id="message" class="message" aria-live="polite"></p>
+      <section class="draw-zone" aria-label="摸牌操作">
+        <button id="draw-stack" class="draw-button" type="button">摸牌</button>
+        <strong id="draw-remaining">剩餘 15 張</strong>
       </section>
-    </div>
-
-    <section class="mobile-info">
-      <button id="mobile-event-guide" class="guide-button" type="button">事件一覽</button>
-      <button id="mobile-leverage-button" class="leverage-button" type="button">下注</button>
-      <button id="mobile-main-menu-button" class="menu-button" type="button">回主選單</button>
-      <details class="info-card"><summary>本局狀態／成就進度</summary><div id="mobile-progress-list" class="progress-list"></div></details>
-      <details class="info-card"><summary>得分方式</summary><div class="rules-list"><p id="mobile-mode-rule"><b>模式</b><span>每局 15 張，包含事件牌</span></p><p><b>連線</b><span>第 1 條 +10｜第 2 條 +20｜第 3 條起 +30</span></p><p><b>花色</b><span>取最高級距、不累加：5 張 5｜7 張 9｜9 張 15</span></p><p><b>字牌</b><span>四風 +5｜三元 +5</span></p><p id="mobile-flower-rule"><b>狂歡花牌</b><span>梅蘭齊聚 +3</span></p></div></details>
+      <nav class="game-actions" aria-label="遊戲功能">
+        <button id="leverage-button" class="leverage-button" type="button">下注</button>
+        <button id="scoring-guide-button" class="guide-button" type="button">得分方式</button>
+        <button id="event-guide-button" class="guide-button" type="button">事件一覽</button>
+        <button id="main-menu-button" class="menu-button" type="button">回主選單</button>
+      </nav>
     </section>
   </main>
 

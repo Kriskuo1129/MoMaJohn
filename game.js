@@ -32,14 +32,12 @@ const GAME_MODE_CONFIG = Object.freeze({
 });
 
 const elements = Object.fromEntries([
-  "board", "draw-stack", "draw-prompt", "draw-progress", "draw-remaining", "total-score", "round-score", "total-lines", "rounds-left", "mobile-multiplier", "mobile-bet-count", "mobile-player-name",
-  "desktop-score", "desktop-round-score", "desktop-lines", "desktop-rounds", "round-label", "state-badge",
-  "desktop-multiplier", "multiplier-badge", "desktop-bet-count", "desktop-player-name", "player-name-input", "player-name-error", "event-guide-button", "mobile-event-guide", "leverage-button", "mobile-leverage-button",
-  "main-menu-button", "mobile-main-menu-button", "mode-select", "game-shell", "mode-label", "mobile-mode-label", "hand-size",
-  "mode-rule", "mobile-mode-rule", "flower-rule", "mobile-flower-rule",
+  "board", "draw-stack", "draw-remaining", "total-score", "round-score", "rounds-left", "player-display", "mode-display",
+  "player-name-input", "player-name-error", "round-status-button", "scoring-guide-button", "event-guide-button", "leverage-button",
+  "main-menu-button", "mode-select", "game-shell",
   "final-waiting-overlay", "final-waiting-title", "final-waiting-missing",
   "bonus-modal", "bonus-waiting", "bonus-instruction", "bonus-count", "bonus-grid", "bonus-result",
-  "draw-count", "message", "progress-list", "mobile-progress-list",
+  "message",
   "toast-stack", "modal", "modal-icon", "modal-kicker", "modal-title", "modal-body", "modal-actions"
 ].map(id => [id.replace(/-([a-z])/g, (_, c) => c.toUpperCase()), document.querySelector(`#${id}`)]));
 
@@ -118,7 +116,7 @@ function startRound() {
   game.busy = false;
   game.pendingSpecial = null;
   renderBoard();
-  elements.message.textContent = "本局預設 ×1；可在第一張牌前設定槓桿與下注";
+  elements.message.textContent = "";
   updateHUD();
 }
 
@@ -188,7 +186,7 @@ function confirmLeverage() {
   game.round.activeBets = selectedBets;
   game.uiOverlayOpen = false;
   closeModal();
-  elements.message.textContent = `已設定 ×${multiplier}、下注 ${game.round.activeBets.length} 項；第一次摸牌後鎖定`;
+  elements.message.textContent = "";
   updateHUD();
 }
 
@@ -261,7 +259,7 @@ async function drawTile() {
   }
   game.busy = false;
   updateHUD();
-  elements.message.textContent = `摸到${tile.label}，剩下 ${GAME_MODE_CONFIG[game.mode].handSize - game.round.drawIndex} 張`;
+  elements.message.textContent = "";
   if (tile.special) return openEventChoice(tile);
   continueAfterDraw();
 }
@@ -279,7 +277,10 @@ function startRoundCostIfNeeded() {
 }
 
 function animateStackTile(tile) {
-  const source = elements.drawStack.getBoundingClientRect();
+  const buttonRect = elements.drawStack.getBoundingClientRect();
+  const sourceWidth = Math.min(64, buttonRect.width * .42);
+  const sourceHeight = sourceWidth / .78;
+  const source = { left: buttonRect.left + (buttonRect.width - sourceWidth) / 2, top: buttonRect.top + (buttonRect.height - sourceHeight) / 2, width: sourceWidth, height: sourceHeight };
   const target = elements.board.querySelector(`[data-tile-id="${tile.id}"]`).getBoundingClientRect();
   const clone = document.createElement("div");
   clone.className = tileClass(tile, "hand-tile revealed flying-tile");
@@ -793,60 +794,31 @@ function getProgress() {
 }
 
 function renderProgress() {
-  const html = getProgress().map(item => `<div class="progress-item${item.done ? " done" : ""}"><b>${item.label}</b><span>${item.value}</span></div>`).join("");
-  elements.progressList.innerHTML = html;
-  elements.mobileProgressList.innerHTML = html;
+  return getProgress().map(item => `<div class="progress-item${item.done ? " done" : ""}"><b>${item.label}</b><span>${item.value}</span></div>`).join("");
 }
 
 function updateHUD() {
   if (!game) return;
   elements.totalScore.textContent = game.score;
   elements.roundScore.textContent = game.round?.roundScore ?? 0;
-  elements.totalLines.textContent = game.totalLines;
   elements.roundsLeft.textContent = attemptDisplay();
-  elements.desktopScore.textContent = game.score;
-  elements.desktopRoundScore.textContent = game.round?.roundScore ?? 0;
-  elements.desktopLines.textContent = game.totalLines;
-  elements.desktopRounds.textContent = attemptDisplay();
-  elements.mobilePlayerName.textContent = game.playerName;
-  elements.desktopPlayerName.textContent = game.playerName;
-  const betCountText = `下注 ${game.round?.activeBets.length ?? 0}`;
-  elements.mobileBetCount.textContent = betCountText;
-  elements.desktopBetCount.textContent = betCountText;
-  elements.drawCount.textContent = game.round?.drawIndex ?? 0;
+  elements.playerDisplay.textContent = game.playerName;
   const config = GAME_MODE_CONFIG[game.mode];
-  elements.roundLabel.textContent = `第 ${game.roundsPlayed + (game.round?.started ? 0 : 1)} 局`;
-  elements.stateBadge.textContent = ({ DRAWING: "摸牌中", EVENT_CHOICE: "事件選擇", EVENT_REVEAL: "事件揭曉", BONUS_PENDING: "最終聽牌", BONUS_DRAW: "補牌", ROUND_END: "本局結算", GAME_OVER: "遊戲結束", READY: "準備" })[game.state];
-  const multiplierText = `×${game.round?.roundMultiplier ?? 1}`;
-  elements.mobileMultiplier.textContent = multiplierText;
-  elements.desktopMultiplier.textContent = multiplierText;
-  elements.multiplierBadge.textContent = multiplierText;
-  elements.modeLabel.textContent = config.label;
-  elements.mobileModeLabel.textContent = config.shortLabel;
-  elements.handSize.textContent = config.handSize;
-  const modeRule = config.eventsEnabled ? `每局 ${config.handSize} 張，包含兩張事件牌` : `每局 ${config.handSize} 張，無事件，專注連線與牌型`;
-  elements.modeRule.querySelector("span").textContent = modeRule;
-  elements.mobileModeRule.querySelector("span").textContent = modeRule;
-  elements.flowerRule.classList.toggle("hidden", game.mode !== "carnival");
-  elements.mobileFlowerRule.classList.toggle("hidden", game.mode !== "carnival");
+  elements.modeDisplay.textContent = config.shortLabel;
   elements.eventGuideButton.classList.toggle("hidden", !config.eventsEnabled);
-  elements.mobileEventGuide.classList.toggle("hidden", !config.eventsEnabled);
   const operationLocked = game.state !== GAME_STATES.DRAWING || game.busy || game.uiOverlayOpen;
-  [elements.eventGuideButton, elements.mobileEventGuide, elements.mainMenuButton, elements.mobileMainMenuButton]
+  [elements.roundStatusButton, elements.scoringGuideButton, elements.eventGuideButton, elements.mainMenuButton]
     .forEach(button => { button.disabled = operationLocked; });
   const multiplier = game.round?.roundMultiplier ?? 1;
   const leverageLocked = game.state !== GAME_STATES.DRAWING || game.round?.started;
   const betCount = game.round?.activeBets.length ?? 0;
-  const leverageLabel = game.round?.started ? "下注已鎖定" : "下注";
-  [elements.leverageButton, elements.mobileLeverageButton].forEach(button => {
-    button.disabled = leverageLocked;
-    button.textContent = leverageLabel;
-    button.classList.remove("multiplier-x1", "multiplier-x2", "multiplier-x3", "leverage-locked");
-    button.classList.add(`multiplier-x${multiplier}`);
-    button.classList.toggle("leverage-locked", Boolean(game.round?.started));
-  });
+  elements.leverageButton.disabled = leverageLocked;
+  elements.leverageButton.classList.remove("multiplier-x1", "multiplier-x2", "multiplier-x3", "multiplier-status");
+  if (game.round?.started) {
+    elements.leverageButton.classList.add(`multiplier-x${multiplier}`, "multiplier-status");
+    elements.leverageButton.innerHTML = `<strong>${multiplier === 3 ? "🔥 " : ""}${multiplier}x</strong>${betCount ? `<small>下注 ${betCount} 項</small>` : ""}`;
+  } else elements.leverageButton.textContent = "下注";
   updateDrawStackUI();
-  renderProgress();
 }
 
 function updateDrawStackUI() {
@@ -854,14 +826,10 @@ function updateDrawStackUI() {
   const total = GAME_MODE_CONFIG[game.mode].handSize;
   const drawn = game.round.drawIndex;
   const remaining = Math.max(0, total - drawn);
-  const prompt = remaining === 0 ? "本局摸牌完成" : drawn === 0 ? "點擊牌堆開始本局" : remaining === 1 ? "最後一張" : "再摸一張";
-  elements.drawPrompt.textContent = prompt;
-  elements.drawProgress.textContent = `已摸 ${drawn} / ${total}`;
   elements.drawRemaining.textContent = `剩餘 ${remaining} 張`;
-  elements.drawStack.setAttribute("aria-label", remaining ? `摸牌牌堆，剩餘 ${remaining} 張，${prompt}` : "本局摸牌完成，牌堆已空");
+  elements.drawStack.textContent = "摸牌";
+  elements.drawStack.setAttribute("aria-label", remaining ? `摸牌，剩餘 ${remaining} 張` : "本局摸牌完成");
   elements.drawStack.disabled = remaining === 0 || game.state !== GAME_STATES.DRAWING || game.busy || game.uiOverlayOpen;
-  elements.drawStack.classList.remove("stack-thick", "stack-thin", "stack-single", "stack-empty");
-  elements.drawStack.classList.add(remaining === 0 ? "stack-empty" : remaining === 1 ? "stack-single" : remaining <= 4 ? "stack-thin" : "stack-thick");
 }
 
 function notifyScore(text, options = {}) {
@@ -916,6 +884,37 @@ function buildEventGuideSection(events) {
   }).join("")}</div></section>`;
 }
 
+function openRoundStatus() {
+  if (game.state !== GAME_STATES.DRAWING || game.busy || game.uiOverlayOpen) return;
+  game.uiOverlayOpen = true;
+  const lines = game.round?.roundLines ?? 0;
+  const waiting = game.round?.activeWaiting.size ?? 0;
+  openModal({
+    icon: "況", kicker: "ROUND STATUS", title: "本局狀態",
+    body: `<div class="round-status-summary"><p><small>本局連線</small><strong>${lines}</strong></p><p><small>目前聽牌</small><strong>${waiting}</strong></p></div><div class="progress-list">${renderProgress()}</div>`,
+    actions: [{ label: "關閉", action: closeInfoModal }]
+  });
+  elements.modal.classList.add("status-sheet");
+}
+
+function openScoringGuide() {
+  if (game.state !== GAME_STATES.DRAWING || game.busy || game.uiOverlayOpen) return;
+  game.uiOverlayOpen = true;
+  const config = GAME_MODE_CONFIG[game.mode];
+  const modeRule = config.eventsEnabled ? `每局 ${config.handSize} 張，包含兩張事件牌` : `每局 ${config.handSize} 張，無事件，專注連線與牌型`;
+  const flowers = game.mode === "carnival" ? `<p><b>狂歡花牌</b><span>梅蘭齊聚 +${SCORE_CONFIG.honor.flowers}</span></p>` : "";
+  openModal({
+    icon: "分", kicker: "SCORING GUIDE", title: "得分方式",
+    body: `<div class="rules-list scoring-guide"><p><b>玩法</b><span>${modeRule}</span></p><p><b>連線</b><span>第 1 條 +10<br>第 2 條 +20<br>第 3 條起每條 +30</span></p><p><b>花色收集</b><span>萬／筒／條取最高級距、不累加<br>5 張 +${SCORE_CONFIG.suit.five}，7 張 +${SCORE_CONFIG.suit.seven}，9 張 +${SCORE_CONFIG.suit.nine}</span></p><p><b>四風／三元</b><span>東南西北 +${SCORE_CONFIG.honor.fourWinds}<br>中發白 +${SCORE_CONFIG.honor.threeDragons}</span></p>${flowers}</div>`,
+    actions: [{ label: "關閉", action: closeInfoModal }]
+  });
+}
+
+function closeInfoModal() {
+  game.uiOverlayOpen = false;
+  closeModal();
+}
+
 function openEventGuide() {
   if (!GAME_MODE_CONFIG[game.mode].eventsEnabled || game.state !== GAME_STATES.DRAWING || game.busy || game.uiOverlayOpen) return;
   game.uiOverlayOpen = true;
@@ -933,6 +932,7 @@ function closeEventGuide() {
 
 function closeModal() {
   elements.modal.classList.remove("open");
+  elements.modal.classList.remove("status-sheet");
   elements.modal.setAttribute("aria-hidden", "true");
 }
 
@@ -1017,13 +1017,12 @@ function returnToMainMenu() {
   showModeSelect();
 }
 
+elements.roundStatusButton.addEventListener("click", openRoundStatus);
+elements.scoringGuideButton.addEventListener("click", openScoringGuide);
 elements.eventGuideButton.addEventListener("click", openEventGuide);
-elements.mobileEventGuide.addEventListener("click", openEventGuide);
 elements.leverageButton.addEventListener("click", openLeverage);
-elements.mobileLeverageButton.addEventListener("click", openLeverage);
 elements.drawStack.addEventListener("click", drawTile);
 elements.mainMenuButton.addEventListener("click", requestMainMenu);
-elements.mobileMainMenuButton.addEventListener("click", requestMainMenu);
 document.querySelectorAll("[data-mode]").forEach(button => button.addEventListener("click", () => selectMode(button.dataset.mode)));
 elements.playerNameInput.addEventListener("input", () => {
   elements.playerNameError.textContent = "";
