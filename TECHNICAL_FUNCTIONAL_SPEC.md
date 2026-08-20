@@ -77,7 +77,7 @@ python -m http.server 8000
 
 `game.mode` 是整場設定，每局沿用同一模式。GAME_OVER 的「再玩一次」保留模式；「回主選單」才回到 `MODE_SELECT`。狂歡模式的梅、蘭是普通棋盤牌，可參與連線，但不觸發事件或額外效果。事件一覽在狂歡模式自動隱藏，操作說明、手牌數與 HUD 模式名稱也依設定更新。
 
-`GAME_STATES` 定義八種狀態：
+`GAME_STATES` 定義九種狀態：
 
 | 狀態 | 說明 | 可摸普通牌 |
 |---|---|---:|
@@ -86,6 +86,7 @@ python -m http.server 8000
 | `DRAWING` | 正式摸牌階段 | 是 |
 | `EVENT_CHOICE` | 選擇接受或丟掉特殊牌 | 否 |
 | `EVENT_REVEAL` | 特殊事件揭曉與結算 | 否 |
+| `BONUS_PENDING` | 正式牌結束後的最終聽牌確認與補牌前提示 | 否 |
 | `BONUS_DRAW` | 依序翻開並檢查三張實際補牌 | 否 |
 | `ROUND_END` | 顯示本局結算 | 否 |
 | `GAME_OVER` | 顯示整場最終結果 | 否 |
@@ -127,6 +128,7 @@ python -m http.server 8000
 - `roundMultiplier`：本局正常得分倍率，建立單局時預設 1。
 - `started`：是否已摸第一張正式牌；用於扣除次數與鎖定槓桿。
 - `bonusMissing`、`selectedBonusTiles`、`bonusCandidates`、`bonusResolved`：補牌狀態。
+- `bonusPendingStarted`：本局是否已啟動補牌前最終聽牌提示，用於阻止重複進入 `BONUS_PENDING`／`BONUS_DRAW`。
 - `game.stats`：整場遊戲即時累積的局數、倍率、牌型、聽牌、補牌與事件統計。
 
 ## 8. 每局流程
@@ -141,9 +143,11 @@ python -m http.server 8000
 8. 玩家摸牌後，牌面以短動畫移動到棋盤對應格並亮起。牌堆同步顯示已摸／總數、剩餘張數與「再摸一張／最後一張／本局摸牌完成」。
 9. 執行連線、成就與聽牌判定。
 10. 若為機會或命運，進入事件選擇流程；事件期間牌堆停用。
-11. 本模式的 15 或 16 張全部摸完後，檢查是否進入補牌。
-12. 補牌結束或沒有聽牌時顯示本局結算。
-13. 只有目前局完整結束後才依剩餘次數決定下一局或 `GAME_OVER`。
+11. 本模式的 15 或 16 張全部摸完後，再執行一次最終聽牌刷新；特殊牌若位於最後一張，會先完成事件選擇、揭曉及玩家按下繼續。
+12. 若 `activeWaiting` 為空，直接顯示本局結算；若仍有聽牌，從 `activeWaiting` 建立 `bonusMissing` 並進入 `BONUS_PENDING`。
+13. `BONUS_PENDING` 再次高亮有效聽牌線，顯示約 1.6 秒的最終聽牌確認與缺牌內容，結束後才開啟既有 `BONUS_DRAW` Modal。
+14. 補牌結束後顯示本局結算。
+15. 只有目前局完整結束後才依剩餘次數決定下一局或 `GAME_OVER`。
 
 ### 正式摸牌 UI
 
@@ -215,9 +219,15 @@ python -m http.server 8000
 - 同時產生多條新聽牌時，顯示「雙聽」或「聽牌 ×N」。
 - 棋盤對應連線會短暫發光。
 
+一般摸牌途中的「聽牌 toast」與補牌前的「最終聽牌確認」用途不同：
+
+- 一般 toast 是非阻塞提示，仍以 `announcedWaiting` 防止同一條線反覆通知。
+- 最終聽牌確認在正式手牌全部完成後固定依 `activeWaiting` 與 `bonusMissing` 顯示，不查詢 `announcedWaiting`，因此先前已提示過的有效聽牌仍會再次明確確認。
+- 最終提示期間狀態為 `BONUS_PENDING`，所有遊戲操作均鎖定；五個已取得格會 pulse，缺牌格使用更明顯的邊框與閃爍。
+
 ## 13. 補牌機制
 
-本模式的正式手牌全部摸完後，若仍至少存在一條 5/6 聽牌，進入獨立的 `BONUS_DRAW` Modal。
+本模式的正式手牌全部摸完後，先刷新最終 `activeWaiting`。若仍至少存在一條 5/6 聽牌，先進入 `BONUS_PENDING` 播放最終聽牌確認，再進入獨立的 `BONUS_DRAW` Modal。
 
 1. 記錄所有有效聽牌缺少的牌 ID，重複缺牌由 `Set` 自動去除。
 2. Modal 頂端直接使用 `bonusMissing` 顯示目前所聽牌的 Unicode 符號與中文名稱。

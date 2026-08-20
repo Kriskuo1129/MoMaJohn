@@ -1,6 +1,6 @@
 const GAME_STATES = Object.freeze({
   MODE_SELECT: "MODE_SELECT", READY: "READY", DRAWING: "DRAWING", EVENT_CHOICE: "EVENT_CHOICE",
-  EVENT_REVEAL: "EVENT_REVEAL", BONUS_DRAW: "BONUS_DRAW",
+  EVENT_REVEAL: "EVENT_REVEAL", BONUS_PENDING: "BONUS_PENDING", BONUS_DRAW: "BONUS_DRAW",
   ROUND_END: "ROUND_END", GAME_OVER: "GAME_OVER"
 });
 
@@ -63,6 +63,7 @@ const elements = Object.fromEntries([
   "desktop-multiplier", "multiplier-badge", "event-guide-button", "mobile-event-guide", "leverage-button", "mobile-leverage-button",
   "main-menu-button", "mobile-main-menu-button", "mode-select", "game-shell", "mode-label", "mobile-mode-label", "hand-size",
   "mode-rule", "mobile-mode-rule",
+  "final-waiting-overlay", "final-waiting-title", "final-waiting-missing",
   "bonus-modal", "bonus-waiting", "bonus-instruction", "bonus-count", "bonus-grid", "bonus-result",
   "draw-count", "message", "progress-list", "mobile-progress-list",
   "toast-stack", "modal", "modal-icon", "modal-kicker", "modal-title", "modal-body", "modal-actions"
@@ -106,7 +107,7 @@ function createRound() {
     board, hand: order.slice(0, config.handSize), remaining: order.slice(config.handSize), drawIndex: 0, drawn: new Set(), discarded: new Set(), started: false,
     completedLines: new Set(), activeWaiting: new Set(), announcedWaiting: new Set(), achievements: new Set(),
     roundScore: 0, roundLines: 0, roundMultiplier: 1, lineMultiplier: 1, nextLineDouble: false,
-    bonusMissing: new Set(), bonusCandidates: [], selectedBonusTiles: [], bonusResolved: false
+    bonusMissing: new Set(), bonusCandidates: [], selectedBonusTiles: [], bonusResolved: false, bonusPendingStarted: false
   };
 }
 
@@ -132,6 +133,7 @@ function weightedRandom(events, random = Math.random()) {
 function startRound() {
   closeModal();
   closeBonusModal();
+  closeFinalWaitingPrompt();
   game.round = createRound();
   game.state = GAME_STATES.DRAWING;
   game.busy = false;
@@ -366,19 +368,79 @@ function continueAfterDraw() {
 
 function findWaitingMissingTiles() {
   const missing = new Set();
-  currentWaitingLines().forEach(line => lineTileIds(line).filter(id => !isOfficiallyDrawn(id)).forEach(id => missing.add(id)));
+  LINE_DEFINITIONS.filter(line => game.round.activeWaiting.has(line.id))
+    .forEach(line => lineTileIds(line).filter(id => !isOfficiallyDrawn(id)).forEach(id => missing.add(id)));
   return missing;
 }
 
 function finishRegularDraws() {
   if (game.state !== GAME_STATES.DRAWING) return;
+  updateWaitingLines();
   game.round.bonusMissing = findWaitingMissingTiles();
-  if (game.round.bonusMissing.size > 0) startBonusDraw();
+  if (game.round.activeWaiting.size > 0 && game.round.bonusMissing.size > 0) startBonusPending();
   else endRound(false, false);
 }
 
+function startBonusPending() {
+  if (game.state !== GAME_STATES.DRAWING || game.round.bonusPendingStarted) return;
+  game.round.bonusPendingStarted = true;
+  game.state = GAME_STATES.BONUS_PENDING;
+  game.busy = true;
+  updateHUD();
+  highlightFinalWaitingLines();
+  showFinalWaitingPrompt();
+  setTimeout(() => {
+    if (game.state !== GAME_STATES.BONUS_PENDING) return;
+    closeFinalWaitingPrompt();
+  }, 1400);
+  setTimeout(() => {
+    if (game.state !== GAME_STATES.BONUS_PENDING) return;
+    clearFinalWaitingHighlight();
+    startBonusDraw();
+  }, 1650);
+}
+
+function highlightFinalWaitingLines() {
+  const activeLines = LINE_DEFINITIONS.filter(line => game.round.activeWaiting.has(line.id));
+  activeLines.forEach(line => line.indexes.forEach(index => {
+    const cell = elements.board.children[index];
+    const tileId = game.round.board[index].id;
+    cell?.classList.add(isOfficiallyDrawn(tileId) ? "final-waiting-hit" : "final-waiting-gap");
+  }));
+}
+
+function clearFinalWaitingHighlight() {
+  elements.board.querySelectorAll(".final-waiting-hit,.final-waiting-gap").forEach(cell => {
+    cell.classList.remove("final-waiting-hit", "final-waiting-gap");
+  });
+}
+
+function showFinalWaitingPrompt() {
+  const waitingCount = game.round.activeWaiting.size;
+  const title = waitingCount === 1 ? "聽牌！" : waitingCount === 2 ? "雙聽！" : `聽牌 ×${waitingCount}`;
+  const tiles = GAME_MODE_CONFIG[game.mode].tiles;
+  const chips = [...game.round.bonusMissing].map(id => {
+    const tile = tiles.find(item => item.id === id);
+    if (!tile) return "";
+    const symbol = tile.special ? (tile.special === "chance" ? "？" : "★") : tile.glyph;
+    return `<span><b>${symbol}</b><small>${tile.label}</small></span>`;
+  }).join("");
+  elements.finalWaitingTitle.textContent = title;
+  elements.finalWaitingMissing.innerHTML = `<strong>目前聽：</strong>${chips}`;
+  elements.finalWaitingOverlay.classList.add("open");
+  elements.finalWaitingOverlay.setAttribute("aria-hidden", "false");
+  elements.message.textContent = `${title} 最終確認中`;
+}
+
+function closeFinalWaitingPrompt() {
+  elements.finalWaitingOverlay.classList.remove("open");
+  elements.finalWaitingOverlay.setAttribute("aria-hidden", "true");
+}
+
 function startBonusDraw() {
+  if (game.state !== GAME_STATES.BONUS_PENDING) return;
   game.state = GAME_STATES.BONUS_DRAW;
+  game.busy = false;
   game.round.selectedBonusTiles = [];
   game.round.bonusCandidates = [];
   game.stats.bonusDrawCount += 1;
@@ -667,7 +729,7 @@ function updateHUD() {
   elements.drawCount.textContent = game.round?.drawIndex ?? 0;
   const config = GAME_MODE_CONFIG[game.mode];
   elements.roundLabel.textContent = `第 ${game.roundsPlayed + (game.round?.started ? 0 : 1)} 局`;
-  elements.stateBadge.textContent = ({ DRAWING: "摸牌中", EVENT_CHOICE: "事件選擇", EVENT_REVEAL: "事件揭曉", BONUS_DRAW: "補牌", ROUND_END: "本局結算", GAME_OVER: "遊戲結束", READY: "準備" })[game.state];
+  elements.stateBadge.textContent = ({ DRAWING: "摸牌中", EVENT_CHOICE: "事件選擇", EVENT_REVEAL: "事件揭曉", BONUS_PENDING: "最終聽牌", BONUS_DRAW: "補牌", ROUND_END: "本局結算", GAME_OVER: "遊戲結束", READY: "準備" })[game.state];
   const multiplierText = `×${game.round?.roundMultiplier ?? 1}`;
   elements.mobileMultiplier.textContent = multiplierText;
   elements.desktopMultiplier.textContent = multiplierText;
@@ -680,6 +742,9 @@ function updateHUD() {
   elements.mobileModeRule.querySelector("span").textContent = modeRule;
   elements.eventGuideButton.classList.toggle("hidden", !config.eventsEnabled);
   elements.mobileEventGuide.classList.toggle("hidden", !config.eventsEnabled);
+  const operationLocked = game.state !== GAME_STATES.DRAWING || game.busy || game.uiOverlayOpen;
+  [elements.eventGuideButton, elements.mobileEventGuide, elements.mainMenuButton, elements.mobileMainMenuButton]
+    .forEach(button => { button.disabled = operationLocked; });
   const multiplier = game.round?.roundMultiplier ?? 1;
   const leverageLocked = game.state !== GAME_STATES.DRAWING || game.round?.started;
   const leverageLabel = game.round?.started ? `${multiplier}x` : multiplier === 1 ? "開槓桿" : `${multiplier}x · 可調整`;
