@@ -206,7 +206,7 @@ function openLeverage() {
     ? `<div class="locked-multiplier"><strong>${game.round.finalMultiplier}x</strong><span>本局實際倍率</span></div>`
     : [1, 2, 3].map(multiplier => `<label class="bet-option multiplier-option"><input type="radio" name="round-multiplier" value="${multiplier}" ${game.round.roundMultiplier === multiplier ? "checked" : ""} ${!isTestScenarioMode() && multiplier > attemptsRemaining() ? "disabled" : ""}><b>${multiplier}x</b><span>消耗 ${multiplier} 次${multiplier === 3 ? "・高風險" : ""}</span></label>`).join("");
   const betOptions = readOnly
-    ? (game.round.activeBets.length ? `<ul class="locked-bets">${game.round.activeBets.map(id => `<li>${BET_DEFINITIONS.find(bet => bet.id === id)?.title ?? id}</li>`).join("")}</ul>` : `<p class="empty-bets">本局沒有額外下注</p>`)
+    ? (game.round.activeBets.length ? `<ul class="locked-bets">${game.round.activeBets.map(id => { const bet = BET_DEFINITIONS.find(item => item.id === id); return `<li><b>${bet?.title ?? id}</b><small>${bet?.description ?? ""}<br>成功 +${bet?.reward ?? 0}｜失敗 -${betPenalty(bet ?? {})}</small></li>`; }).join("")}</ul>` : `<p class="empty-bets">本局沒有額外下注</p>`)
     : BET_DEFINITIONS.filter(bet => bet.enabled).map(bet => {
     const penalty = betPenalty(bet);
     const checked = currentBets.has(bet.id);
@@ -857,7 +857,7 @@ function rollbackRoundOutcomeStats(round) {
 
 function betConditionMet(bet) {
   const handlers = {
-    ALL_HONORS: () => bet.conditionValue.every(isOfficiallyDrawn),
+    MIN_HONORS: () => bet.conditionValue.tileIds.filter(isOfficiallyDrawn).length >= bet.conditionValue.minimum,
     MIN_LINES: () => game.round.roundLines >= bet.conditionValue,
     EVER_WAITED: () => game.round.everWaited
   };
@@ -1084,8 +1084,8 @@ function buildScoringGuideContent() {
   const config = GAME_MODE_CONFIG[game.mode];
   const modeRule = config.eventsEnabled ? `每局 ${config.handSize} 張，包含兩張事件牌` : `每局 ${config.handSize} 張，無事件，專注連線與牌型`;
   const flowers = game.mode === "carnival" ? `<p><b>狂歡花牌</b><span>梅蘭齊聚 +${SCORE_CONFIG.honor.flowers}</span></p>` : "";
-  const bets = BET_DEFINITIONS.filter(bet => bet.enabled).map(bet => `${bet.title}：成功 +${bet.reward}／失敗 -${betPenalty(bet)}`).join("<br>");
-  return `<section class="help-section"><h3>點數獲得方式</h3><div class="rules-list scoring-guide"><p><b>玩法</b><span>${modeRule}</span></p><p><b>倍率</b><span>本局點數依倍率即時顯示<br>額外下注不乘倍率</span></p><p><b>連線</b><span>第 1 條 +10 點<br>第 2 條 +20 點<br>第 3 條起每條 +30 點</span></p><p><b>牌型</b><span>萬／筒／條：5 張 +${SCORE_CONFIG.suit.five}、7 張累計 +${SCORE_CONFIG.suit.seven}、9 張累計 +${SCORE_CONFIG.suit.nine}<br>四風 +${SCORE_CONFIG.honor.fourWinds}／三元 +${SCORE_CONFIG.honor.threeDragons}</span></p>${flowers}<p><b>特殊成就</b><span>天聽 +${SCORE_CONFIG.special.earlyWaiting}<br>海底撈月 +${SCORE_CONFIG.special.lastTileFirstLine}</span></p><p><b>額外下注</b><span>${bets}</span></p></div></section>`;
+  const bets = BET_DEFINITIONS.filter(bet => bet.enabled).map(bet => `${bet.title}：${bet.description}<br>成功 +${bet.reward}／失敗 -${betPenalty(bet)}`).join("<br>");
+  return `<section class="help-section"><h3>點數獲得方式</h3><div class="rules-list scoring-guide"><p><b>玩法</b><span>${modeRule}</span></p><p><b>倍率</b><span>本局點數依倍率即時顯示<br>額外下注不乘倍率</span></p><p><b>連線</b><span>第 1 條 +30 點<br>第 2 條 +60 點<br>第 3 條起每條 +90 點</span></p><p><b>牌型</b><span>萬／筒／條：5 張 +${SCORE_CONFIG.suit.five}、7 張累計 +${SCORE_CONFIG.suit.seven}、9 張累計 +${SCORE_CONFIG.suit.nine}<br>四風 +${SCORE_CONFIG.honor.fourWinds}／三元 +${SCORE_CONFIG.honor.threeDragons}</span></p>${flowers}<p><b>特殊成就</b><span>天聽 +${SCORE_CONFIG.special.earlyWaiting}<br>海底撈月 +${SCORE_CONFIG.special.lastTileFirstLine}</span></p><p><b>額外下注</b><span>${bets}</span></p></div></section>`;
 }
 
 function openHelp() {
@@ -1125,7 +1125,7 @@ function openScoringGuide() {
   const flowers = game.mode === "carnival" ? `<p><b>狂歡花牌</b><span>梅蘭齊聚 +${SCORE_CONFIG.honor.flowers}</span></p>` : "";
   openModal({
     icon: "點", kicker: "POINTS GUIDE", title: "點數獲得方式",
-    body: `<div class="rules-list scoring-guide"><p><b>玩法</b><span>${modeRule}</span></p><p><b>局末倍率</b><span>本局所有正負點數於結算時統一 × 倍率<br>額外下注不乘倍率</span></p><p><b>連線</b><span>第 1 條 +10 點<br>第 2 條 +20 點<br>第 3 條起每條 +30 點</span></p><p><b>花色收集</b><span>萬／筒／條取最高級距、不累加<br>5 張 +${SCORE_CONFIG.suit.five}，7 張 +${SCORE_CONFIG.suit.seven}，9 張 +${SCORE_CONFIG.suit.nine}</span></p><p><b>四風／三元</b><span>東南西北 +${SCORE_CONFIG.honor.fourWinds}<br>中發白 +${SCORE_CONFIG.honor.threeDragons}</span></p><p><b>特殊成就</b><span>前 5 張形成聽牌：天聽 +${SCORE_CONFIG.special.earlyWaiting}<br>最後一張完成首條線：海底撈月 +${SCORE_CONFIG.special.lastTileFirstLine}</span></p>${flowers}</div>`,
+    body: `<div class="rules-list scoring-guide"><p><b>玩法</b><span>${modeRule}</span></p><p><b>局末倍率</b><span>本局所有正負點數於結算時統一 × 倍率<br>額外下注不乘倍率</span></p><p><b>連線</b><span>第 1 條 +30 點<br>第 2 條 +60 點<br>第 3 條起每條 +90 點</span></p><p><b>花色收集</b><span>萬／筒／條取最高級距、不累加<br>5 張 +${SCORE_CONFIG.suit.five}，7 張 +${SCORE_CONFIG.suit.seven}，9 張 +${SCORE_CONFIG.suit.nine}</span></p><p><b>四風／三元</b><span>東南西北 +${SCORE_CONFIG.honor.fourWinds}<br>中發白 +${SCORE_CONFIG.honor.threeDragons}</span></p><p><b>特殊成就</b><span>前 5 張形成聽牌：天聽 +${SCORE_CONFIG.special.earlyWaiting}<br>最後一張完成首條線：海底撈月 +${SCORE_CONFIG.special.lastTileFirstLine}</span></p>${flowers}</div>`,
     actions: [{ label: "關閉", action: closeInfoModal }]
   });
 }

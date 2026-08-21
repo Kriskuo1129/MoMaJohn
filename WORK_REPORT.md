@@ -1,6 +1,6 @@
 # 《台灣夜市摸麻將》工作報告
 
-更新時間：2026-08-21（Asia/Taipei）
+更新時間：2026-08-22（Asia/Taipei）
 
 ## 1. 修改檔案
 
@@ -45,17 +45,17 @@ HUD 的「目前結算」只是 `rawPoints × finalMultiplier` 預覽，不會�
 
 一般事件：老闆今天心情很好 16、老闆算錯錢 12、老闆偷偷放水 7、夜市廣播抽中你 7、神秘紅包 10、老闆請你喝飲料 14、神秘大獎 7、口袋發現上次的點數 8、手滑掉進水溝 16、老闆抓到你偷看 9、隔壁小屁孩哭著求你給他點數 13、小偷來了 9。
 
-特殊事件：隔壁攤不玩了 6、免費再來一次 9、夜市神明保佑 5、命運逆轉 2、老闆突然加碼 3、隔壁高手來亂 7、不揪被抓到 6、隔壁瓦斯桶爆炸 1、故意不小心 4、停電 4、五條誤 5、偷天換日 5、隔壁棒球攤的球飛過來 4。
+特殊事件：隔壁攤不玩了 6、免費再來一次 9、夜市神明保佑 5、命運逆轉 2、老闆突然加碼 6、隔壁高手來亂 7、不揪被抓到 6、隔壁瓦斯桶爆炸 1、故意不小心 4、停電 4、五條誤 5、偷天換日 5、隔壁棒球攤的球飛過來 4。
 
 完整效果表見 `EVENTS_BETS_SCORING.md`。
 
 ## 7. Weight 實際比例
 
-- 正面：106／189，56.1%
-- 負面：65／189，34.4%
-- 中性：18／189，9.5%
+- 正面：109／192，56.8%
+- 負面：65／192，33.9%
+- 中性：18／192，9.4%
 
-符合約 55%／35%／10% 的目標。
+比例依本次唯一的 Weight 調整照實記錄，未修改其他事件權重。
 
 ## 8. Effect handlers
 
@@ -117,11 +117,11 @@ HUD 的「目前結算」只是 `rawPoints × finalMultiplier` 預覽，不會�
 - `node --check game-config.js`：通過。
 - `git diff --check`：通過，無空白錯誤。
 - 靜態搜尋：未發現殘留 `CHOICE`、`EVENT_CHOICE`、`DOUBLE_NEXT_LINE`、`DOUBLE_FUTURE_LINES`。
-- 權重程式計算：正 106、負 65、中性 18，合計 189。
+- 權重程式計算：正 109、負 65、中性 18，合計 192。
 - 桌面瀏覽器完整執行狂歡模式一局，共摸 16 張。
-- 選擇 2x 後，局內原始 +10 時確認總點數仍為 0、HUD 預估為 +20。
+- 選擇 2x 後，局內倍率前 +30 時確認總點數仍為 0、HUD 預估為 +60。
 - 進入補牌三選並選滿 3 張；補牌未中時不增加正式牌、線或點數。
-- 單局結算確認 `+10 × 2 = +20`，結算後總點數由 0 動畫更新為 20。
+- 單局結算確認 `+30 × 2 = +60`，證實倍率只套用一次。
 - 375×667 手機 viewport 檢查 HUD、棋盤語意內容與單局結算按鈕可見。
 - 瀏覽器 console error／warning：0。
 
@@ -178,11 +178,24 @@ HUD 的「目前結算」只是 `rawPoints × finalMultiplier` 預覽，不會�
 5. Scenario 1 實機結果：萬子九張門檻正常累加，局末聽東；補牌第一格為東，玩家點擊後立即成功並取得 +1 次。單局共有 5 項點數成就。
 6. Scenario 2 實機結果：條子九張門檻正常累加，局末聽東；前三格依序為一萬、二萬、三萬，三張皆未命中並顯示補牌失敗。
 7. Scenario 3 實機結果：筒子九張門檻正常累加，局末聽東；第一格東命中並取得 +1 次。
-8. Scenario 4 將一萬至五萬放在前五張、六萬放在第十五張，同列配置在棋盤第一列。前五張自然顯示「天聽！ +5 點」，前十四張維持零正式連線，第十五張顯示「連線成功！ +10 點」及「海底撈月！ +5 點」。
-9. Scenario 5 使用第一橫列、第一直行與反斜線共用交點，把三張各自的完成牌排在第 13～15 張；實機 Toast 依序為 +10、+20、+30，結算完成 3 條線。
+8. Scenario 4 將一萬至五萬放在前五張、六萬放在第十五張，同列配置在棋盤第一列。前五張自然顯示「天聽！ +5 點」，前十四張維持零正式連線，第十五張顯示「連線成功！ +30 點」及「海底撈月！ +5 點」。
+9. Scenario 5 使用第一橫列、第一直行與反斜線共用交點，把三張各自的完成牌排在第 13～15 張；正式 `scoreLines()` 依序給予 +30、+60、+90，總連線倍率前數值 180，完成線數仍為 3。
 10. Scenario 6 將事件 A 固定在第八張；揭曉階段只對本劇本指定既有 `explosion` ID，仍由 `executeEvent()` 與 `END_GAME` handler 完成本局結算及 GAME OVER。
 11. 測試模式的倍率選項不因暫時剩餘次數不足而鎖定；首次摸牌時只對測試 session 補足本局消耗，前五局局末若歸零則保留下一劇本所需的一次，不改變正式玩家限制。
 12. 補牌與事件增加次數仍寫入既有 `totalAttemptsGranted` 與統計，但 scenario index 完全獨立。
 13. 「再玩一次」實測回到局數 1 / 6，棋盤第一列重新為一萬至五萬與東；回主選單亦透過 fresh game state 重置。
 14. 一般玩家 `KRIS` 連續重載兩次取得不同棋盤排列；正式 `shuffle()`、補牌 remaining 與 weighted event 路徑未被替換。狂歡模式不符合啟用條件。
 15. `game.js` 與 `game-config.js` JavaScript syntax check 通過；瀏覽器完整跑完六局後 console 無 error 或 warning。
+
+## 20. 觸控、國聚、連線與事件權重增量修改
+
+1. `touch-action: manipulation` 套用於 `.game-shell`、`.play-area`、`.draw-button`、`.tile`、`.hand-tile`／`.bonus-tile`、`.leverage-button`、`.bet-option`、`.guide-button` 與 `.modal-actions button`。未使用 `user-scalable=no` 或 `maximum-scale=1`，Modal 捲動區仍為 `overflow-y: auto`。
+2. 以 375×667 Chromium 手機 viewport 驗證上述操作元件的 computed `touch-action` 均為 `manipulation`；下注 Modal 實際由 `scrollTop 0` 滑至 `436`，且頁面無水平溢位。此環境無法取代 iPhone Safari、iPhone Chrome 與 Android Chrome 實機，因此實機 double-tap zoom 最終驗收仍待真機確認；採用的標準 CSS 不封鎖雙指縮放。
+3. 「相信國聚」改為東、南、西、北、中、發、白中正式取得任意 5 張即成功；+30／-30、最大風險 30、複選、資格檢查、局末結算及不乘倍率均未更動。判定以取得數量 `>= 5` 實作，因此 4 張失敗，5／6／7 張成功。
+4. 正式連線倍率前數值改為第一條 +30、第二條 +60、第三條 +90。
+5. 第四條及之後共用 `SCORE_CONFIG.line.thirdPlus`，每條仍為 +90；`completedLines` Set 與 line ID 防重複機制未更動。
+6. 「老闆突然加碼」Weight 由 3 改為 6；效果 handler 未改，仍為整局 `finalMultiplier × 2` 且上限 6x，weighted random 抽取流程也未改為固定觸發。
+7. Enabled 事件新分布為正面 109／192（56.8%）、負面 65／192（33.9%）、中性 18／192（9.4%）；除「老闆突然加碼」外未調整其他 Weight。
+8. TEST1129 已同步。Scenario 4 實際完成第一線後，本局內容包含連線 +30 與海底撈月 +5；Scenario 5 實際走正式 `scoreLines()`，第 13～15 張 Toast 依序顯示 +30、+60、+90，三條連線倍率前數值合計 180。該劇本另有既有牌型成就，因此整局 HUD 最終值不等同純連線小計。
+9. 正式 RNG 未發現任何依總點數、本局點數、300 點、倍率、下注、前局表現或連線數控牌的邏輯。非 TEST1129 的 `createRound()` 仍分別以 `shuffle(config.tiles)` 建立 board 與正式抽牌 order；只有明確的 TEST1129 劇本會建立固定 board／hand／remaining。
+10. 使用 bundled Node 執行 `node --check game.js` 與 `node --check game-config.js` 均通過；`git diff --check` 通過。最終瀏覽器重載後，玩家說明包含 30／60／90 與國聚任意 5 張，console error／warning 為 0。

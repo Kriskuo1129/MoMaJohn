@@ -8,7 +8,7 @@
  */
 
 const SCORE_CONFIG = Object.freeze({
-  line: Object.freeze({ first: 10, second: 20, thirdPlus: 30 }),
+  line: Object.freeze({ first: 30, second: 60, thirdPlus: 90 }),
   // 花色數值是「該門目前總獎勵值」，不是每個 milestone 的額外加分。
   suit: Object.freeze({ five: 5, seven: 9, nine: 15 }),
   honor: Object.freeze({ fourWinds: 5, threeDragons: 5, flowers: 3 }),
@@ -32,7 +32,7 @@ const EVENT_DEFINITIONS = [
   { id: "free-round", title: "免費再來一次", story: "老闆說你長得很面熟，今天算你一次免費的。", category: "SPECIAL", sentiment: "POSITIVE", effectType: "ADD_ROUNDS", value: 1, weight: 9, displayEffect: "+1 次", enabled: true },
   { id: "temple", title: "夜市神明保佑", story: "附近宮廟遶境經過，鑼鼓一響，今晚運氣突然變好了。", category: "SPECIAL", sentiment: "POSITIVE", effectType: "ADD_ROUNDS", value: 2, weight: 5, displayEffect: "+2 次", enabled: true },
   { id: "reversal", title: "命運逆轉", story: "你以為完蛋了，結果老闆突然多送三次。", category: "SPECIAL", sentiment: "POSITIVE", effectType: "ADD_ROUNDS", value: 3, weight: 2, displayEffect: "+3 次", enabled: true },
-  { id: "double-round", title: "老闆突然加碼", story: "老闆拍桌大喊：這局最後結算整個翻倍！", category: "SPECIAL", sentiment: "POSITIVE", effectType: "DOUBLE_FINAL_MULTIPLIER", value: 2, weight: 3, displayEffect: "本局最終倍率 ×2", enabled: true },
+  { id: "double-round", title: "老闆突然加碼", story: "老闆拍桌大喊：這局最後結算整個翻倍！", category: "SPECIAL", sentiment: "POSITIVE", effectType: "DOUBLE_FINAL_MULTIPLIER", value: 2, weight: 6, displayEffect: "本局最終倍率 ×2", enabled: true },
   { id: "expert", title: "隔壁高手來亂", story: "隔壁高手突然開始大聲指揮，把你搞得完全不會摸。", category: "SPECIAL", sentiment: "NEGATIVE", effectType: "HALVE_ROUND_SCORE", value: 0.5, weight: 7, displayEffect: "本局目前點數減半", enabled: true },
   { id: "no-invite", title: "不揪被抓到", story: "被朋友發現來夜市竟然沒有揪，只好分他一局去玩。", category: "SPECIAL", sentiment: "NEGATIVE", effectType: "SUB_ROUNDS", value: 1, weight: 6, displayEffect: "失去 1 次", enabled: true },
   { id: "explosion", title: "隔壁瓦斯桶爆炸", story: "碰！！！隔壁攤位傳來巨響，所有人拔腿就跑！", category: "SPECIAL", sentiment: "NEGATIVE", effectType: "END_GAME", value: true, weight: 1, displayEffect: "完成本局結算後 GAME OVER", enabled: true },
@@ -44,7 +44,7 @@ const EVENT_DEFINITIONS = [
 ];
 
 const BET_DEFINITIONS = [
-  { id: "believe-guoju", title: "相信國聚", description: "我相信這局可以把所有國字摸齊！", reward: 30, penalty: 30, conditionType: "ALL_HONORS", conditionValue: ["east", "south", "west", "north", "red", "green", "white"], enabled: true },
+  { id: "believe-guoju", title: "相信國聚", description: "東、南、西、北、中、發、白中，正式取得任意 5 張。", reward: 30, penalty: 30, conditionType: "MIN_HONORS", conditionValue: { tileIds: ["east", "south", "west", "north", "red", "green", "white"], minimum: 5 }, enabled: true },
   { id: "one-line", title: "我一定會連！", description: "本局至少完成 1 條正式連線。", reward: 15, penalty: 10, conditionType: "MIN_LINES", conditionValue: 1, enabled: true },
   { id: "waiting", title: "我要聽牌", description: "本局曾經至少形成一次 5/6 聽牌。", reward: 5, penalty: 5, conditionType: "EVER_WAITED", conditionValue: true, enabled: true },
   { id: "three-lines", title: "豪賭三線", description: "高風險：本局完成至少 3 條正式連線。", reward: 50, penalty: 20, conditionType: "MIN_LINES", conditionValue: 3, enabled: true }
