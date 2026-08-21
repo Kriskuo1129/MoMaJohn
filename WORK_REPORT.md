@@ -1,4 +1,4 @@
-# 《台灣夜市摸麻將》V2 工作報告
+# 《台灣夜市摸麻將》工作報告
 
 更新時間：2026-08-21（Asia/Taipei）
 
@@ -7,16 +7,16 @@
 - `index.html`：HUD 資訊階級與玩家可見「點數」用語。
 - `style.css`：HUD、1x／2x／3x／4x／6x 棋盤氣氛、一般／特殊事件、單局結算及手機版樣式。
 - `game-config.js`：新點數規則、事件分類／內容／權重與特殊成就設定。
-- `game.js`：原始點數模型、局末倍率、事件 handler、成就、統計、重開與單局結算。
-- `README.md`：更新至 V2 架構與執行說明。
+- `game.js`：倍率前數值模型、局末倍率、事件 handler、成就、統計、重開與單局結算。
+- `README.md`：更新架構與執行說明。
 - `EVENTS_BETS_SCORING.md`：建立可供團隊討論的完整數值表。
-- `RELEASE_NOTES_V2.md`：建立玩家版更新說明。
-- `TECHNICAL_FUNCTIONAL_SPEC_20260821_113846.md`：建立帶時間戳的 V2 規格新檔；舊規格未覆寫。
+- `RELEASE_NOTES.md`：建立玩家版更新說明。
+- `TECHNICAL_FUNCTIONAL_SPEC.md`：整合為唯一技術與功能規格；後續不再建立時間戳副本。
 - `WORK_REPORT.md`：本報告。
 
 ## 2. 新的本局點數資料流
 
-正式連線、牌型、天聽、海底撈月及一般事件先進入 `round.rawPoints`。此值允許為負，局內只更新 HUD 的「本局點數」與「目前結算」，不直接改變 `game.score`。
+正式連線、牌型、天聽、海底撈月及一般事件先進入 `round.rawPoints`。此值允許為負，HUD 將它乘上有效倍率後顯示為「本局點數」，局內不直接改變 `game.score`。
 
 局末資料流：
 
@@ -36,7 +36,7 @@ HUD 的「目前結算」只是 `rawPoints × finalMultiplier` 預覽，不會�
 
 ## 5. 事件分類
 
-- `NORMAL`：只處理本局原始點數，Modal 以綠／紅結果字區分正負。
+- `NORMAL`：只處理本局倍率前數值，Modal 以綠／紅結果字區分正負。
 - `SPECIAL`：處理次數、倍率、棋盤或流程，使用獨立標記、紫色邊框與光暈。
 
 所有事件均直接執行；選擇型 `CHOICE`、options、`EVENT_CHOICE` 與「老闆說要不要賭一把？」已移除。「好運連線」亦已移除。
@@ -67,8 +67,8 @@ HUD 的「目前結算」只是 `rawPoints × finalMultiplier` 預覽，不會�
 
 調整：
 
-- `ADD_SCORE`、`SUB_SCORE`、`RANDOM_SCORE` 改變本局原始點數。
-- `HALVE_ROUND_SCORE` 只減半目前原始點數。
+- `ADD_SCORE`、`SUB_SCORE`、`RANDOM_SCORE` 改變本局倍率前數值。
+- `HALVE_ROUND_SCORE` 只減半目前倍率前數值。
 - `ADD_ROUNDS` 與補牌加次數均限制「剩餘次數」最高為 6。
 - `END_ROUND`、`END_GAME` 都先完成正常單局結算。
 
@@ -83,23 +83,23 @@ HUD 的「目前結算」只是 `rawPoints × finalMultiplier` 預覽，不會�
 - 天聽：`updateWaitingLines()` 發現有效 5/6 且正式摸牌序號不超過 5 時，以 achievement ID `early-waiting` 發放一次 +5。
 - 海底撈月：`scoreLines()` 在第 15 張（依模式正式 hand size）產生新線，且該線為本局第一條時，以 `last-tile-first-line` 發放一次 +5。
 
-兩者均加入原始點數並受局末倍率影響；achievement Set 防止重複。
+兩者均加入倍率前數值並受局末倍率影響；achievement Set 防止重複。
 
 ## 10. 此局重來
 
-棒球攤事件先回復被重開局的有效連線、成就、聽牌成果及該局事件造成的次數變化，再建立新的 board／hand／remaining。新的 round 保留原倍率、下注、`attemptStart` 與已消耗次數，因此不會重新扣除遊玩次數。舊局原始點數和所有局內效果作廢；實際已觸發的事件類別統計保留。
+棒球攤事件先回復被重開局的有效連線、成就、聽牌成果及該局事件造成的次數變化，再建立新的 board／hand／remaining。新的 round 保留原倍率、下注、`attemptStart` 與已消耗次數，因此不會重新扣除遊玩次數。舊局倍率前數值和所有局內效果作廢；實際已觸發的事件類別統計保留。
 
 ## 11. 老闆突然加碼
 
-事件將 `finalMultiplier` 乘 2 並以 6 為上限：1→2、2→4、3→6。它作用於整局最終原始點數，且事件完成時立即更新 HUD 與棋盤 class。
+事件將 `finalMultiplier` 乘 2 並以 6 為上限：1→2、2→4、3→6。它作用於整局最終倍率前數值，且事件完成時立即更新 HUD 與棋盤 class。
 
 ## 12. ROUND END 結算流程
 
 1. 鎖定 `ROUND_END`。
-2. 原始點數乘最終倍率並加入總點數。
+2. 倍率前數值乘最終倍率並加入總點數。
 3. 額外下注獨立結算。
 4. 記錄最高單局與倍率統計。
-5. 顯示原始點數、倍率算式、倍率結果、下注結果與本局最終變化。
+5. 顯示倍率前數值、倍率算式、倍率結果、下注結果與本局最終變化。
 6. 以約 0.9 秒 count 動畫顯示總點數變化。
 7. 玩家主動按下一局或查看最終成績。
 
@@ -131,7 +131,7 @@ HUD 的「目前結算」只是 `rawPoints × finalMultiplier` 預覽，不會�
 - Unicode 麻將牌實際字形仍取決於作業系統字型，但專案保留中文 label／ARIA 文字，且沒有新增圖片 fallback。
 - 總點數接近 0 時，負值倍率結算會依規格停在 0；單局結果仍顯示原始理論倍率損益，實際總點數變化則受 0 下限保護。
 
-## 16. V2 增量修正：倍率光效、聽牌下注與事件牌識別
+## 16.  增量修正：倍率光效、聽牌下注與事件牌識別
 
 - 倍率光效：光效由原本較薄的外框提升為主要遊戲容器與棋盤雙層 glow，加入環境色 radial gradient、強化邊框、內外陰影與約 2.35～3.2 秒的低頻呼吸動畫。1x 維持原貌；2x 為金黃暖光；3x 為強度更高的橘紅 On Fire；4x 為紫色高倍率光；6x 為範圍、亮度與呼吸強度均高於 4x 的強紫光。HUD 倍率文字同步套用對應色彩。既有 `updateHUD()` 會在最終倍率改變時立即切換 class，因此老闆加碼後可直接由 3x 紅橘切換為 6x 強紫。
 - 我要聽牌：條件與 `everWaited` 判定不變，reward 由 +10 改為 **+5 點**，penalty 維持 **-5 點**；最大風險仍為 5 點、局末獨立結算且不乘倍率。
@@ -139,7 +139,7 @@ HUD 的「目前結算」只是 `rawPoints × finalMultiplier` 預覽，不會�
 - 事件 Modal：修改幅度很小，因此已在揭曉前後的 kicker 保留「事件 A」或「事件 B」來源標記，不影響實際抽取事件。
 - 測試：JavaScript 語法與 `git diff --check` 通過；文件中未發現舊的聽牌下注 +10。瀏覽器實測 1x class 無動畫與陰影、2x 使用 `board-gold-glow` 雙層金光、3x 使用 `board-fire-glow` 紅橘環境光；4x／6x 對應 class 與 CSS 強度已靜態核對，6x 的外部 glow 範圍與亮度均高於 4x。375×667 實測 `scrollWidth` 與 `clientWidth` 同為 360，沒有水平溢位；事件 A／B 各一張且字面完整落在牌格內。實際第 14 張抽到事件 B 時，Modal 顯示「事件 B・特殊事件」，事件仍由原 weighted pool 抽出「夜市神明保佑」。下注 Modal 實測顯示「成功 +5｜失敗 -5」與門檻 5 點。
 
-## 17. V2 增量修正：HUD、補牌與最終成績
+## 17.  增量修正：HUD、補牌與最終成績
 
 1. HUD 重新排版：頂部改為三欄結構，左側玩家名稱／模式、中間大型本局點數、右側較小的總點數。欄位使用 `minmax()`、`min-width: 0`、ellipsis 與 tabular numbers，避免長名稱及窄畫面疊圖。
 2. 移除重複資訊：頂部不再顯示倍率、目前結算及遊玩次數；倍率仍由下注狀態按鈕與棋盤光效呈現。本局狀態按鈕移到下方功能列。
@@ -152,4 +152,37 @@ HUD 的「目前結算」只是 `rawPoints × finalMultiplier` 預覽，不會�
 9. GAME OVER 頂部：固定呈現獎盃、玩家名稱與巨大最終點數，移除 `NIGHT MARKET RESULT`、「某某的成績單」及最終總點數標題。
 10. 最終統計：總成績只保留連線數、總局數、單局最高點數、補牌成功／嘗試／成功率；牌型成就保留；事件與下注區只保留各自總損益。詳細 stats 仍留在內部供平衡使用。
 11. 手機 Responsive：375px 寬度使用三欄 HUD 與三欄摸牌列，左右資訊縮小但不換行，中央摸牌按鈕維持至少 56px 高；GAME OVER 統計改單欄並保持 Modal footer 可操作。
-12. 測試：JavaScript 語法與 `git diff --check` 通過。瀏覽器以 12 字元名稱及 375px viewport 實測，HUD 三欄無交疊、頁面 `scrollWidth` 與 `clientWidth` 同為 360；摸牌列依序顯示「局數 1 / 6、摸牌、剩餘 16 張」。3x 局內取得基礎 +5 時 HUD 顯示 +15，證實畫面採倍率後值。完整遊玩兩局後，單局結算未出現原始點數與乘法公式；GAME OVER 只顯示獎盃、玩家名稱、巨大最終點數、四項總成績、牌型成就及兩項損益。補牌實際走過三張未中流程；第一／第二張提早命中分支以程式路徑核對：每次選牌立即比對 `bonusMissing`，命中當下先停用所有按鈕，再由 `bonusResolved` 保證只結算及加局一次。430px 規則與短 viewport 亦完成 computed layout 檢查。
+12. 測試：JavaScript 語法與 `git diff --check` 通過。瀏覽器以 12 字元名稱及 375px viewport 實測，HUD 三欄無交疊、頁面 `scrollWidth` 與 `clientWidth` 同為 360；摸牌列依序顯示「局數 1 / 6、摸牌、剩餘 16 張」。3x 局內取得基礎 +5 時 HUD 顯示 +15，證實畫面採倍率後值。完整遊玩兩局後，單局結算未出現倍率前數值與乘法公式；GAME OVER 只顯示獎盃、玩家名稱、巨大最終點數、四項總成績、牌型成就及兩項損益。補牌實際走過三張未中流程；第一／第二張提早命中分支以程式路徑核對：每次選牌立即比對 `bonusMissing`，命中當下先停用所有按鈕，再由 `bonusResolved` 保證只結算及加局一次。430px 規則與短 viewport 亦完成 computed layout 檢查。
+
+## 18. 手機下注、整合狀態與說明
+
+1. 手機下注位置：新增只在手機顯示的同步下注按鈕，放在 HUD 與 `.play-area` 之間；桌面仍使用原操作列按鈕。兩個入口共用同一函式與狀態，不會產生兩份下注資料。
+2. 手機順序：實際 DOM 與 computed layout 均為 HUD → 下注 → 棋盤 → 摸牌 → 說明 → 回主選單。倍率光效留在 `.play-area`，下注按鈕使用較高 stacking context，不被 glow 遮擋。
+3. 摸牌後唯讀：`openLeverage()` 依 `round.started` 切換。未開始時 render radio／checkbox 與確認按鈕；開始後只 render `finalMultiplier`、鎖定下注名稱及關閉按鈕，完全不建立 input，因此不能修改但仍可查看。老闆加碼後再次開啟會直接讀取最新 `finalMultiplier`。
+4. 狀態整合：下注視窗下方直接使用 `roundLines`、`activeWaiting`、`everWaited`、既有 `renderProgress()` 與 achievement Set，顯示連線、聽牌、三門花色、四風、三元、適用模式的梅蘭、天聽與海底撈月。已下注的連線或聽牌目標使用輕量邊框強調。
+5. 移除入口：主畫面不再有本局狀態、點數獲得方式或事件一覽的獨立按鈕。手機摸牌下方及桌面次要操作都只保留說明與回主選單，桌面另保留下注。
+6. 說明整合：`openHelp()` 組合點數、牌型、特殊成就、倍率、下注摘要及由 `EVENT_DEFINITIONS` 動態建立的事件一覽，避免複製事件資料。
+7. 狂歡模式：`eventsEnabled` 為 false 時不 render 事件 section，不留下空標題或空白區塊。
+8. 版本命名：已清除 UI、CSS 註解、README、規則、技術規格、更新說明與本報告內的版本代號；玩家更新文件改名為 `RELEASE_NOTES.md`。
+9. 技術用語：玩家 UI 已清除不適用的工程式點數舊稱；技術文件只以 `rawPoints：內部倍率前數值` 說明實作。
+10. 牌型 Toast：花色門檻統一顯示自然文案，例如「萬子 5 張！ +5 點」，不再顯示基礎或工程式說明。
+11. Responsive 測試：375×667、390×844、430×932 均無水平捲動；三種尺寸皆確認下注底部 sheet 可捲動、關閉按鈕可見。375px 實測 sheet 高 614px、中央內容 client 407px／scroll 594px，footer 未被遮住。
+12. 功能測試：第一張前倍率 radio 可編輯；第一張後按鈕仍 enabled，唯讀視窗 input 數量為 0，正確顯示「下注 · 2x」、2x、本局沒有額外下注及狀態。標準模式說明同時含點數與事件，狂歡模式只含點數。萬子 5 張 Toast 實測為「萬子 5 張！ +5 點」，全文不含禁用字樣。桌面版確認手機下注按鈕隱藏，操作列只顯示下注、說明、回主選單。
+
+## 19. TEST1129 測試劇本模式
+
+1. 名稱先依既有流程 `trim()`，再以 `playerName === "TEST1129"` 精確判定；只在標準模式啟用。
+2. `game.testScenarioRoundIndex` 依實際開始的牌局遞增，補牌或事件增加次數不會插入、重複或延後劇本。
+3. `TEST_SCENARIOS` 集中描述六局目標；`buildTestScenarioRound()` 在 `createRound()` 階段建立固定 board、hand 與 remaining。
+4. 建立時檢查 hand ID 不重複，並驗證 hand 與 remaining 合併後仍為完整 36 個唯一 ID；所有牌都來自標準模式牌組。
+5. Scenario 1 實機結果：萬子九張門檻正常累加，局末聽東；補牌第一格為東，玩家點擊後立即成功並取得 +1 次。單局共有 5 項點數成就。
+6. Scenario 2 實機結果：條子九張門檻正常累加，局末聽東；前三格依序為一萬、二萬、三萬，三張皆未命中並顯示補牌失敗。
+7. Scenario 3 實機結果：筒子九張門檻正常累加，局末聽東；第一格東命中並取得 +1 次。
+8. Scenario 4 將一萬至五萬放在前五張、六萬放在第十五張，同列配置在棋盤第一列。前五張自然顯示「天聽！ +5 點」，前十四張維持零正式連線，第十五張顯示「連線成功！ +10 點」及「海底撈月！ +5 點」。
+9. Scenario 5 使用第一橫列、第一直行與反斜線共用交點，把三張各自的完成牌排在第 13～15 張；實機 Toast 依序為 +10、+20、+30，結算完成 3 條線。
+10. Scenario 6 將事件 A 固定在第八張；揭曉階段只對本劇本指定既有 `explosion` ID，仍由 `executeEvent()` 與 `END_GAME` handler 完成本局結算及 GAME OVER。
+11. 測試模式的倍率選項不因暫時剩餘次數不足而鎖定；首次摸牌時只對測試 session 補足本局消耗，前五局局末若歸零則保留下一劇本所需的一次，不改變正式玩家限制。
+12. 補牌與事件增加次數仍寫入既有 `totalAttemptsGranted` 與統計，但 scenario index 完全獨立。
+13. 「再玩一次」實測回到局數 1 / 6，棋盤第一列重新為一萬至五萬與東；回主選單亦透過 fresh game state 重置。
+14. 一般玩家 `KRIS` 連續重載兩次取得不同棋盤排列；正式 `shuffle()`、補牌 remaining 與 weighted event 路徑未被替換。狂歡模式不符合啟用條件。
+15. `game.js` 與 `game-config.js` JavaScript syntax check 通過；瀏覽器完整跑完六局後 console 無 error 或 warning。
