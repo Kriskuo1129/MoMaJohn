@@ -1,4 +1,4 @@
-# 台灣夜市摸麻將（MoMaJohnNM）
+# 台灣夜市摸麻將（MoMaJohn）
 
 純 HTML、CSS、JavaScript 製作的一頁式夜市麻將遊戲，不需後端或建置工具即可執行。
 
