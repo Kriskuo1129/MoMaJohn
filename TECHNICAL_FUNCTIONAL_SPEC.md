@@ -176,7 +176,7 @@ HUD 即時顯示：
 
 ## 12. 整合式下注、狀態與說明
 
-- 手機版另設同步的下注入口，DOM 順序位於 HUD 與主要棋盤之間；桌面版保留操作列入口。兩者共用 `openLeverage()` 與相同 round state。
+- 桌機與手機共用棋盤下方同一個下注入口；它與「摸牌 (N)」組成 1:1 等寬主要操作列，沿用 `openLeverage()` 與相同 round state。
 - 第一張牌前，下注視窗提供倍率 radio 與額外下注 checkbox；確認後設定 `leverageConfigured`。第一張牌後仍可開啟同一視窗，但只 render `finalMultiplier`、已鎖定下注與狀態，不建立可修改 input。
 - 本局狀態直接沿用 `roundLines`、`activeWaiting`、`everWaited`、`achievements` 與既有 `renderProgress()`，沒有建立第二套判定。
 - 說明視窗使用 `SCORE_CONFIG`、`BET_DEFINITIONS` 與 `EVENT_DEFINITIONS` 動態 render。標準模式顯示點數與事件；狂歡模式只顯示適用的點數規則。
@@ -197,3 +197,11 @@ HUD 即時顯示：
 除玩家名稱精確為 `TEST1129` 且進入標準模式的開發測試劇本外，正式遊戲的 `board`、`hand`、`remaining` 與正式抽牌順序一律由正常隨機洗牌建立。
 
 禁止依據總點數、本局點數、是否接近 300 點、目前倍率、玩家下注、前幾局表現、已完成連線數或運氣好壞，動態修改抽牌機率或牌序。300 點只作為平衡與成績評價基準，不得成為 RNG 控分條件。若需調整整體平均點數，應修改公開的點數數值、事件 Weight、下注數值、遊玩局數或其他公開規則，不得暗中調整抽牌機率。
+
+## 15. HUD 與主要操作列
+
+- HUD 顯示玩家名稱、模式、本局點數、總點數與局數；本局點數維持最高視覺層級，右側垂直排列總點數與局數。局數直接使用既有 `attemptDisplay()`。
+- HUD 欄位使用 `minmax()`、`min-width: 0`、ellipsis、nowrap 與 tabular numbers，12 字元玩家名稱不會擠壓本局點數或造成水平溢位。
+- 棋盤下方主要操作列固定為「下注｜摸牌 (N)」，兩欄各占 50%，同高、同圓角、同字級與同邊框厚度；按鈕保留各自角色配色與 `touch-action: manipulation`。
+- N 由目前模式 `handSize - drawIndex` 計算，只代表正式摸牌剩餘數量。標準／狂歡新局分別顯示 15／16，正式牌歸零後維持「摸牌 (0)」及既有 disabled 流程，不讀取補牌數量。
+- 下注摘要仍直接讀取 `finalMultiplier` 與 `activeBets`；第一張牌後仍可開啟既有唯讀視窗，老闆加碼後會立即反映 4x／6x。

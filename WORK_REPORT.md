@@ -199,3 +199,18 @@ HUD 的「目前結算」只是 `rawPoints × finalMultiplier` 預覽，不會�
 8. TEST1129 已同步。Scenario 4 實際完成第一線後，本局內容包含連線 +30 與海底撈月 +5；Scenario 5 實際走正式 `scoreLines()`，第 13～15 張 Toast 依序顯示 +30、+60、+90，三條連線倍率前數值合計 180。該劇本另有既有牌型成就，因此整局 HUD 最終值不等同純連線小計。
 9. 正式 RNG 未發現任何依總點數、本局點數、300 點、倍率、下注、前局表現或連線數控牌的邏輯。非 TEST1129 的 `createRound()` 仍分別以 `shuffle(config.tiles)` 建立 board 與正式抽牌 order；只有明確的 TEST1129 劇本會建立固定 board／hand／remaining。
 10. 使用 bundled Node 執行 `node --check game.js` 與 `node --check game-config.js` 均通過；`git diff --check` 通過。最終瀏覽器重載後，玩家說明包含 30／60／90 與國聚任意 5 張，console error／warning 為 0。
+
+## 21. HUD 與摸牌操作列增量修改
+
+1. 摸牌剩餘數量直接由既有 `handSize - drawIndex` 產生，按鈕統一 render 為「摸牌 (N)」；N 不讀取補牌數量。
+2. 唯一的 `leverage-button` 移至棋盤下方 `.draw-zone` 左欄，右欄為 `draw-stack`；手機專用下注按鈕與重複事件監聽已移除。
+3. 操作列使用兩個 `minmax(0, 1fr)` 欄位，兩按鈕同高、同圓角、同字級、同邊框厚度與相近陰影，並保留原本角色配色。
+4. 局數由操作列移至 HUD，直接使用既有 `attemptDisplay()`，未建立新的局數計算。
+5. HUD 分為身份、本局點數、右側 meta 三區；本局點數維持最高層級，右側垂直排列總點數與局數。長名稱使用 ellipsis，數字使用 nowrap 與 tabular numbers。
+6. 下注摘要仍讀取 `finalMultiplier` 與 `activeBets`，設定後顯示「下注 · Nx · N項」；摸牌後仍可開啟既有唯讀狀態，因此老闆加碼後會立即顯示 4x／6x。
+7. `draw-rounds`、`draw-remaining`、`mobile-leverage-button` DOM 及其 JavaScript references 已清除，未修改規則、亂數、TEST1129 或結算流程。
+8. 標準／狂歡剩餘數量共用 `GAME_MODE_CONFIG[game.mode].handSize - game.round.drawIndex`，因此新局分別 render「摸牌 (15)」與「摸牌 (16)」，每次正式摸牌遞減，歸零維持「摸牌 (0)」。
+9. 老闆加碼 handler 仍更新 `finalMultiplier` 並走既有 `updateHUD()`；下注摘要每次 render 都直接讀取該值，所以 2→4、3→6 及下注項數會即時同步。
+10. 375／390／430px 規則皆固定使用兩個 `minmax(0, 1fr)` 欄位；長摘要不參與欄寬分配。12 字元名稱由 `min-width: 0`、overflow 與 ellipsis 保護，本局點數欄維持獨立最小寬度。
+11. 舊 DOM、事件監聽及對應的 `draw-rounds`、`draw-remaining`、`mobile-leverage-button` CSS selector 均已移除，未留下隱藏的重複 UI。
+12. `node --check game.js`、`node --check game-config.js` 與 `git diff --check` 通過；核心規則函式差異 sentinel 無命中。內建瀏覽器受安全政策限制，無法開啟 localhost／file URL，因此本次環境未能取得 computed layout 或 console 實測結果，仍需在可開啟本機頁面的瀏覽器做最終視覺驗收。

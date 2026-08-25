@@ -32,8 +32,8 @@ const GAME_MODE_CONFIG = Object.freeze({
 });
 
 const elements = Object.fromEntries([
-  "board", "draw-stack", "draw-remaining", "draw-rounds", "total-score", "round-score", "player-display", "mode-display",
-  "player-name-input", "player-name-error", "help-button", "leverage-button", "mobile-leverage-button",
+  "board", "draw-stack", "total-score", "round-score", "rounds-display", "player-display", "mode-display",
+  "player-name-input", "player-name-error", "help-button", "leverage-button",
   "main-menu-button", "mode-select", "game-shell",
   "final-waiting-overlay", "final-waiting-title", "final-waiting-missing",
   "bonus-modal", "bonus-waiting", "bonus-instruction", "bonus-count", "bonus-grid", "bonus-result",
@@ -987,6 +987,7 @@ function renderProgress() {
 function updateHUD() {
   if (!game) return;
   elements.totalScore.textContent = game.score;
+  elements.roundsDisplay.textContent = attemptDisplay();
   const rawPoints = game.round?.rawPoints ?? 0;
   const multiplier = game.round?.finalMultiplier ?? 1;
   const displayedRoundPoints = rawPoints * multiplier;
@@ -1005,7 +1006,7 @@ function updateHUD() {
   [elements.helpButton, elements.mainMenuButton]
     .forEach(button => { button.disabled = operationLocked; });
   const betCount = game.round?.activeBets.length ?? 0;
-  [elements.leverageButton, elements.mobileLeverageButton].forEach(button => {
+  [elements.leverageButton].forEach(button => {
     button.disabled = operationLocked;
     button.classList.remove("multiplier-x1", "multiplier-x2", "multiplier-x3", "multiplier-x4", "multiplier-x6", "multiplier-status");
     const showSummary = game.round?.started || game.round?.leverageConfigured;
@@ -1022,9 +1023,7 @@ function updateDrawStackUI() {
   const total = GAME_MODE_CONFIG[game.mode].handSize;
   const drawn = game.round.drawIndex;
   const remaining = Math.max(0, total - drawn);
-  elements.drawRemaining.textContent = `剩餘 ${remaining} 張`;
-  elements.drawRounds.textContent = `局數 ${attemptDisplay()}`;
-  elements.drawStack.textContent = "摸牌";
+  elements.drawStack.textContent = `摸牌 (${remaining})`;
   elements.drawStack.setAttribute("aria-label", remaining ? `摸牌，剩餘 ${remaining} 張` : "本局摸牌完成");
   elements.drawStack.disabled = remaining === 0 || game.state !== GAME_STATES.DRAWING || game.busy || game.uiOverlayOpen;
 }
@@ -1242,7 +1241,6 @@ function returnToMainMenu() {
 
 elements.helpButton.addEventListener("click", openHelp);
 elements.leverageButton.addEventListener("click", openLeverage);
-elements.mobileLeverageButton.addEventListener("click", openLeverage);
 elements.drawStack.addEventListener("click", drawTile);
 elements.mainMenuButton.addEventListener("click", requestMainMenu);
 document.querySelectorAll("[data-mode]").forEach(button => button.addEventListener("click", () => selectMode(button.dataset.mode)));

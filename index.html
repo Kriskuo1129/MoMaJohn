@@ -24,22 +24,21 @@
       <section class="hud-score-panel">
         <div class="hud-identity"><strong id="player-display">玩家</strong><span id="mode-display">標準</span></div>
         <div class="hud-round-points"><small>本局點數</small><strong id="round-score">0</strong></div>
-        <div class="hud-total"><small>總點數</small><strong id="total-score">0</strong></div>
+        <div class="hud-meta">
+          <div class="hud-total"><small>總點數</small><strong id="total-score">0</strong></div>
+          <div class="hud-rounds"><small>局數</small><strong id="rounds-display">1 / 6</strong></div>
+        </div>
       </section>
     </header>
-
-    <button id="mobile-leverage-button" class="leverage-button mobile-leverage-button" type="button">下注</button>
 
     <section class="play-area">
       <div id="board" class="board" role="grid" aria-label="六乘六麻將對獎盤"></div>
       <p id="message" class="message" aria-live="polite"></p>
       <section class="draw-zone" aria-label="摸牌操作">
-        <strong id="draw-rounds" class="draw-rounds">局數 1 / 6</strong>
-        <button id="draw-stack" class="draw-button" type="button">摸牌</button>
-        <strong id="draw-remaining">剩餘 15 張</strong>
+        <button id="leverage-button" class="leverage-button" type="button">下注</button>
+        <button id="draw-stack" class="draw-button" type="button">摸牌 (15)</button>
       </section>
       <nav class="game-actions" aria-label="遊戲功能">
-        <button id="leverage-button" class="leverage-button" type="button">下注</button>
         <button id="help-button" class="guide-button" type="button">說明</button>
         <button id="main-menu-button" class="menu-button" type="button">回主選單</button>
       </nav>
