@@ -118,7 +118,7 @@ HUD 的「目前結算」只是 `rawPoints × finalMultiplier` 預覽，不會�
 - `git diff --check`：通過，無空白錯誤。
 - 靜態搜尋：未發現殘留 `CHOICE`、`EVENT_CHOICE`、`DOUBLE_NEXT_LINE`、`DOUBLE_FUTURE_LINES`。
 - 權重程式計算：正 109、負 65、中性 18，合計 192。
-- 桌面瀏覽器完整執行狂歡模式一局，共摸 16 張。
+- 桌面瀏覽器完整執行當時的狂歡模式一局；現行規格已調整為每局 18 張。
 - 選擇 2x 後，局內倍率前 +30 時確認總點數仍為 0、HUD 預估為 +60。
 - 進入補牌三選並選滿 3 張；補牌未中時不增加正式牌、線或點數。
 - 單局結算確認 `+30 × 2 = +60`，證實倍率只套用一次。
@@ -152,7 +152,7 @@ HUD 的「目前結算」只是 `rawPoints × finalMultiplier` 預覽，不會�
 9. GAME OVER 頂部：固定呈現獎盃、玩家名稱與巨大最終點數，移除 `NIGHT MARKET RESULT`、「某某的成績單」及最終總點數標題。
 10. 最終統計：總成績只保留連線數、總局數、單局最高點數、補牌成功／嘗試／成功率；牌型成就保留；事件與下注區只保留各自總損益。詳細 stats 仍留在內部供平衡使用。
 11. 手機 Responsive：375px 寬度使用三欄 HUD 與三欄摸牌列，左右資訊縮小但不換行，中央摸牌按鈕維持至少 56px 高；GAME OVER 統計改單欄並保持 Modal footer 可操作。
-12. 測試：JavaScript 語法與 `git diff --check` 通過。瀏覽器以 12 字元名稱及 375px viewport 實測，HUD 三欄無交疊、頁面 `scrollWidth` 與 `clientWidth` 同為 360；摸牌列依序顯示「局數 1 / 6、摸牌、剩餘 16 張」。3x 局內取得基礎 +5 時 HUD 顯示 +15，證實畫面採倍率後值。完整遊玩兩局後，單局結算未出現倍率前數值與乘法公式；GAME OVER 只顯示獎盃、玩家名稱、巨大最終點數、四項總成績、牌型成就及兩項損益。補牌實際走過三張未中流程；第一／第二張提早命中分支以程式路徑核對：每次選牌立即比對 `bonusMissing`，命中當下先停用所有按鈕，再由 `bonusResolved` 保證只結算及加局一次。430px 規則與短 viewport 亦完成 computed layout 檢查。
+12. 測試：JavaScript 語法與 `git diff --check` 通過。瀏覽器以 12 字元名稱及 375px viewport 實測，HUD 三欄無交疊、頁面 `scrollWidth` 與 `clientWidth` 同為 360；摸牌列依序顯示當時版本的局數、摸牌與剩餘張數；現行狂歡模式新局為 18 張。3x 局內取得基礎 +5 時 HUD 顯示 +15，證實畫面採倍率後值。完整遊玩兩局後，單局結算未出現倍率前數值與乘法公式；GAME OVER 只顯示獎盃、玩家名稱、巨大最終點數、四項總成績、牌型成就及兩項損益。補牌實際走過三張未中流程；第一／第二張提早命中分支以程式路徑核對：每次選牌立即比對 `bonusMissing`，命中當下先停用所有按鈕，再由 `bonusResolved` 保證只結算及加局一次。430px 規則與短 viewport 亦完成 computed layout 檢查。
 
 ## 18. 手機下注、整合狀態與說明
 
@@ -209,8 +209,74 @@ HUD 的「目前結算」只是 `rawPoints × finalMultiplier` 預覽，不會�
 5. HUD 分為身份、本局點數、右側 meta 三區；本局點數維持最高層級，右側垂直排列總點數與局數。長名稱使用 ellipsis，數字使用 nowrap 與 tabular numbers。
 6. 下注摘要仍讀取 `finalMultiplier` 與 `activeBets`，設定後顯示「下注 · Nx · N項」；摸牌後仍可開啟既有唯讀狀態，因此老闆加碼後會立即顯示 4x／6x。
 7. `draw-rounds`、`draw-remaining`、`mobile-leverage-button` DOM 及其 JavaScript references 已清除，未修改規則、亂數、TEST1129 或結算流程。
-8. 標準／狂歡剩餘數量共用 `GAME_MODE_CONFIG[game.mode].handSize - game.round.drawIndex`，因此新局分別 render「摸牌 (15)」與「摸牌 (16)」，每次正式摸牌遞減，歸零維持「摸牌 (0)」。
+8. 標準／狂歡剩餘數量共用 `GAME_MODE_CONFIG[game.mode].handSize - game.round.drawIndex`，因此新局分別 render「摸牌 (15)」與「摸牌 (18)」，每次正式摸牌遞減，歸零維持「摸牌 (0)」。
 9. 老闆加碼 handler 仍更新 `finalMultiplier` 並走既有 `updateHUD()`；下注摘要每次 render 都直接讀取該值，所以 2→4、3→6 及下注項數會即時同步。
 10. 375／390／430px 規則皆固定使用兩個 `minmax(0, 1fr)` 欄位；長摘要不參與欄寬分配。12 字元名稱由 `min-width: 0`、overflow 與 ellipsis 保護，本局點數欄維持獨立最小寬度。
 11. 舊 DOM、事件監聽及對應的 `draw-rounds`、`draw-remaining`、`mobile-leverage-button` CSS selector 均已移除，未留下隱藏的重複 UI。
 12. `node --check game.js`、`node --check game-config.js` 與 `git diff --check` 通過；核心規則函式差異 sentinel 無命中。內建瀏覽器受安全政策限制，無法開啟 localhost／file URL，因此本次環境未能取得 computed layout 或 console 實測結果，仍需在可開啟本機頁面的瀏覽器做最終視覺驗收。
+
+## 22. HUD 70／30 重新設計
+
+1. HUD 新 DOM：`.hud-score-panel` 直接包含 `.hud-left` 與 `.hud-rounds`；左側再分成 `.hud-player` 與兩欄 `.hud-points`，移除模式文字與點數 label。
+2. 左右比例：最終 scoped CSS 使用 `grid-template-columns: minmax(0, 7fr) minmax(..., 3fr)`，桌面及 375／390／430px 手機均維持約 70%／30%。
+3. 名稱區：左側上列約占 38%，使用 flex 置中；12 字元名稱以 `min-width: 0`、nowrap、overflow 與 ellipsis 保持單行及固定高度。
+4. 點數配置：左下固定為總點數，右下固定為倍率後本局點數，使用 tabular numbers、nowrap、overflow 與 clamp；兩者使用相同字級與視覺權重。
+5. 取消點數文字 label：兩格位置在整局固定，視覺只保留數字以降低 HUD 高度；HTML 仍用 `aria-label` 保留總點數／本局點數的無障礙語意。
+6. 正數顏色：`updateHUD()` 直接依既有 `displayedRoundPoints` 套用 class；0～19 為 `hud-score-gold`、20～49 為 `hud-score-orange`、50～69 為 `hud-score-red`、70 以上為 `hud-score-purple`。
+7. 負數顏色：任何小於 0 的值統一使用 `hud-score-negative` 柔和淡藍，不依負值幅度分級；0 使用暖金。
+8. 老闆加碼：事件完成後既有流程仍呼叫 `updateHUD()`；數字與顏色 class 在同一次 render 依最新 `rawPoints × finalMultiplier` 更新，3x→6x 可由橘色直接切換紫色。
+9. 局數區：右側是 grid 第二欄並跨元件全高，使用 `place-content: center` 垂直置中；小型「局數」在上，大型 `X/Y` 在下，資料仍取自 `attemptDisplay()`。
+10. Responsive：375×667、390×844、430×932 使用相同 7fr／3fr 結構，短畫面只降低最小高度與字級；HUD 不增加操作列高度或水平溢位。
+11. 大數字：總點數 0／50／218／999／1028，以及本局 0／+5／+30／+90／+180／+540／-5／-120 均由固定雙欄、clamp 與 nowrap 保護，不換行或推高 HUD。
+12. 長名稱：`KRIS` 與 `ABCDEFGHIJKL` 均維持單行；後者在極窄環境允許 ellipsis，不改變 HUD 高度。
+13. 前版 HUD CSS：舊 DOM 的 `.hud-identity`、`.hud-meta` 與模式節點已不再使用；檔尾新增只作用於新 DOM 的最終 HUD scoped rules，完整覆蓋先前通用 HUD 宣告。為避免影響混寫於舊 media query 的棋盤／操作列規則，未刪除其中無效的歷史 selector。
+14. 遊戲邏輯：未修改規則、點數計算、倍率、局數計算、下注、事件、TEST1129、亂數、補牌、結算、棋盤或操作列；只調整 HUD render 格式與顏色 class。
+15. 驗證：`node --check game.js`、`node --check game-config.js`、`git diff --check` 與 11 個色彩邊界值均通過；首頁、CSS、設定檔與遊戲腳本的本機 HTTP 請求全部回傳 200。375／390／430px、大數字與長名稱已完成 DOM／CSS 約束檢查；本次 in-app browser 因 Windows sandbox 初始化錯誤無法啟動，因此未取得實際 browser console 結果，此限制不屬於遊戲程式錯誤。
+
+## 23. 手機優先 HUD 修正
+
+1. 上一版手機未正確套用，是因 `style.css` 仍有多組舊 HUD 規則：原第 95、106、119 行的 `@media(max-width:759px)` 分別重設 `.hud-score-panel` 為舊三欄、指定 `.hud-round-points` 與 `.hud-total` 不同 grid 位置及不同字級；檔尾 scoped 規則只再次覆蓋，未消除 cascade 根因。
+2. 本次使用 selector-aware 清理移除 `.game-hud`、`.hud-score-panel`、`.hud-identity`、`.hud-meta`、`.mobile-hud` 及所有現行 HUD 子 selector 的舊規則；同一 selector list 或 media query 中的棋盤、操作列與 Modal 規則均保留。
+3. HUD 已改為 mobile-first：基礎規則直接服務 375～430px，只有 `@media(min-width:760px)` 增加桌面 padding、最小高度與字級，資訊結構不變。
+4. 375px 的外層 `grid-template-columns` 為 `minmax(0,7fr) minmax(0,3fr)`；HUD 使用 `width:100%`、`min-width:0` 與全域 border-box，避免 100vw 加 padding 的水平溢位。
+5. 左側下方 DOM 第一格確實為 `.hud-total`，顯示不加正號的總點數。
+6. 左側下方 DOM 第二格確實為 `.hud-round-points`，顯示帶正負號的本局點數。
+7. `.hud-points` 固定使用 `repeat(2,minmax(0,1fr))`，內容不參與欄寬分配，所有 viewport 均維持 50%／50%。
+8. 兩個點數共用同一條 `strong` 規則，因此 CSS 設定的 font-size、font-weight 900、line-height 1、padding、置中與可用寬度一致；唯一差異是本局點數套用既有動態顏色 class。瀏覽器 computed style 將列入可啟動本機頁面的環境做最終覆核。
+9. 390／430px 不另設結構 breakpoint，沿用完全相同的 70／30 與 1fr／1fr；只會由同一套 clamp 自然取得略大的字級。
+10. 375px 下的 +540／1028 與 -120／999 共用相同 clamp、nowrap、overflow 與固定半欄，不針對單側縮字或改變欄寬。
+11. 已清除舊 HUD override，不再採用檔尾層層覆蓋；目前只有一組 mobile-first HUD block 與一個 `min-width:760px` 桌面增強。
+12. 未修改 rawPoints、finalMultiplier、game.score、attemptDisplay()、下注、倍率、事件、TEST1129、補牌、RNG、結算、棋盤或操作列。`updateHUD()` 仍使用相同數值來源，只處理文字與顏色 class。
+13. `node --check game.js` 與 `node --check game-config.js`：通過。
+14. `git diff --check`：通過。
+15. 自動化 layout 檢查與手機實機驗收分開記錄；若目前環境無法啟動真實手機 browser，375／390／430px 的實機觸控與 Safari toolbar 行為仍列為待使用者實機驗收，不以 CSS 靜態檢查冒充實機完成。
+## 24. HUD 點數順序與選填玩家名稱
+
+1. HUD 反向原因：`updateHUD()` 原本已正確將 `game.score` 寫入 `#total-score`、將 `rawPoints × finalMultiplier` 寫入 `#round-score`；真正錯誤是 `index.html` 將 `.hud-round-points` 排在 `.hud-total` 前面，造成畫面左本局、右總分。
+2. 修正位置：交換 `index.html` 兩個 HUD 節點的 DOM 順序，並把中央分隔線改套在右側 `.hud-round-points`；未交換 ID，也未更動 `updateHUD()` 的數值來源與公式。
+3. 左下綁定：`.hud-total > #total-score`，由 `game.score` 更新，固定 HUD 金色且不顯示正號。
+4. 右下綁定：`.hud-round-points > #round-score`，由 `rawPoints × finalMultiplier` 更新，正數帶 `+`、0 顯示 `0`、負數帶 `-`。
+5. 數值順序檢查：`50 | +5`、`218 | +90`、`999 | -30`、`1028 | +540` 均依 DOM 與 `updateHUD()` 綁定得到左總點數、右本局點數。
+6. 色彩：動態 `hud-score-*` class 仍只由 `updateHUD()` 套在右側 `#round-score`；左側 `#total-score` 沒有動態 class，維持固定色彩。
+7. Responsive：375／390／430px 與桌面共用同一 DOM 和 `repeat(2,minmax(0,1fr))`，兩欄相同 font-size、font-weight、line-height、padding、clamp 與可用寬度。
+8. 空名稱：`selectMode()` 先對實際輸入執行 `trim().slice(0, 12)`；結果為空不再阻止開始，而以 `EMPTY_PLAYER_DISPLAY_NAME` 顯示「-沒輸入名稱-」。
+9. fallback 僅存於當次 game state，不寫回 input，也不寫入 `localStorage`；input listener 只保存非空的實際名稱。回到主選單時 fallback 會還原為空白輸入欄。
+10. GAME OVER 標題沿用 `game.playerName`，因此空名稱局顯示「-沒輸入名稱-」。
+11. TEST1129：判斷仍為 `game.playerName === "TEST1129"` 且標準模式；空名稱 fallback 與其他大小寫不會啟用，六局劇本未修改。
+12. 其他邏輯：未修改 rawPoints、finalMultiplier、game.score、局數、下注、倍率、事件、Weight、TEST1129 劇本、RNG、補牌、結算、棋盤或操作列。
+13. 驗證：`50 | +5`、`218 | +90`、`999 | -30`、`1028 | +540`、`999 | -120` 的 DOM／格式綁定測試均通過；`KRIS`、空字串、純空白及 `TEST1129` 名稱測試均通過；`node --check game.js`、`node --check game-config.js`、`git diff --check` 及首頁／CSS／JS 本機 HTTP 200 檢查通過。375／390／430px 共用相同 70／30 與 1fr／1fr 靜態規則；本次 in-app browser 執行環境在啟動時中止，故未取得真實 computed layout 或 console error／warning 結果，仍需在可開啟本機頁面的瀏覽器完成最終實機驗收。
+## 25. 狂歡模式正式手牌調整為 18 張
+
+1. 修改位置：`game.js` 的 `GAME_MODE_CONFIG.carnival.handSize` 由 16 改為 18；標準模式仍為 15。
+2. 核心生效方式：只修改模式設定即可讓 `createRound()` 依 18 張切分 hand／remaining，正式摸牌按鈕、結束判定、最終聽牌及補牌入口沿用同一 `handSize`。
+3. hard-code 檢查：未發現 `drawIndex >= 16`、`drawIndex === 16` 或狂歡模式固定 16 張的流程判斷。海底撈月已使用 `GAME_MODE_CONFIG[game.mode].handSize`，不需修改計分邏輯。
+4. 摸牌按鈕：既有 `handSize - drawIndex` 會在狂歡新局顯示「摸牌 (18)」，依序下降至「摸牌 (0)」。
+5. 第 16 張：`drawIndex` 尚未等於 18，不會呼叫 `finishRegularDraws()`，仍可繼續摸第 17、18 張。
+6. 第 18 張：`drawIndex === handSize` 時才進入既有正式摸牌結束、ROUND END 或 BONUS_PENDING／BONUS_DRAW 判定。
+7. 海底撈月：`scoreLines()` 以當前模式 `handSize` 判斷最後一張；標準為第 15 張，狂歡自然改為第 18 張。
+8. 補牌：觸發時點沿用 `finishRegularDraws()`，只有第 18 張完成後才可能進入狂歡模式既有補牌流程。
+9. 標準模式：`handSize: 15`、牌組、按鈕倒數與結束時點完全不變。
+10. TEST1129：仍只在標準模式啟用，六局劇本與 Scenario 4 第 15 張海底撈月均未修改。
+11. 牌組與 RNG：狂歡模式仍以既有 `shuffle(config.tiles)` 產生 order，再切出前 18 張 hand；未加入選牌、重抽或分數相關機率控制。
+12. 其他功能：未修改點數、事件、下注、倍率、HUD、局數、補牌規則、結算、棋盤、成績統計或狂歡牌組內容。
+13. 驗證：`node --check game.js`、`node --check game-config.js` 與 `git diff --check` 通過。以實際狂歡牌組執行 100 次既有 shuffle／slice 測試，皆為 hand 18、remaining 18、各集合 ID 唯一且互不重疊；倒數驗證為 18→…→第 16 張後剩 2→1→0，第 16 張不結束、第 18 張才符合 `handSize`。標準模式仍為 15，海底撈月與 `finishRegularDraws()` 均確認依模式 handSize。首頁、CSS、game.js、game-config.js 本機 HTTP 請求均為 200。瀏覽器控制因 Windows sandbox 初始化錯誤無法啟動，故本環境未取得 console error／warning 實測結果，仍需在可啟動本機頁面的瀏覽器覆核。

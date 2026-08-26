@@ -15,19 +15,21 @@
       <h2>今晚想怎麼玩？</h2>
       <div class="mode-options">
         <button type="button" data-mode="standard"><b>標準模式</b><span>夜市經典玩法・每局 15 張</span><small>事件牌、隨機事件，高風險高變化</small></button>
-        <button type="button" data-mode="carnival"><b>狂歡模式 🔥</b><span>純粹拚點・每局 16 張</span><small>沒有隨機事件，多摸一張，專注連線與牌型</small></button>
+        <button type="button" data-mode="carnival"><b>狂歡模式 🔥</b><span>純粹拚點・每局 18 張</span><small>沒有隨機事件，多摸三張，專注連線與牌型</small></button>
       </div>
     </div>
   </section>
   <main id="game-shell" class="game-shell hidden">
     <header class="game-hud" aria-label="遊戲資訊">
       <section class="hud-score-panel">
-        <div class="hud-identity"><strong id="player-display">玩家</strong><span id="mode-display">標準</span></div>
-        <div class="hud-round-points"><small>本局點數</small><strong id="round-score">0</strong></div>
-        <div class="hud-meta">
-          <div class="hud-total"><small>總點數</small><strong id="total-score">0</strong></div>
-          <div class="hud-rounds"><small>局數</small><strong id="rounds-display">1 / 6</strong></div>
+        <div class="hud-left">
+          <div class="hud-player"><strong id="player-display">玩家</strong></div>
+          <div class="hud-points">
+            <div class="hud-total" aria-label="總點數"><strong id="total-score">0</strong></div>
+            <div class="hud-round-points" aria-label="本局點數"><strong id="round-score" class="hud-score-gold">0</strong></div>
+          </div>
         </div>
+        <div class="hud-rounds"><small>局數</small><strong id="rounds-display">1/6</strong></div>
       </section>
     </header>
 

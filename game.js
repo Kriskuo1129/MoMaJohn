@@ -28,11 +28,11 @@ const CARNIVAL_TILES = [...CORE_TILES,
 ];
 const GAME_MODE_CONFIG = Object.freeze({
   standard: { id: "standard", label: "標準模式", shortLabel: "標準", handSize: 15, eventsEnabled: true, tiles: STANDARD_TILES },
-  carnival: { id: "carnival", label: "狂歡模式", shortLabel: "狂歡 🔥", handSize: 16, eventsEnabled: false, tiles: CARNIVAL_TILES }
+  carnival: { id: "carnival", label: "狂歡模式", shortLabel: "狂歡 🔥", handSize: 18, eventsEnabled: false, tiles: CARNIVAL_TILES }
 });
 
 const elements = Object.fromEntries([
-  "board", "draw-stack", "total-score", "round-score", "rounds-display", "player-display", "mode-display",
+  "board", "draw-stack", "total-score", "round-score", "rounds-display", "player-display",
   "player-name-input", "player-name-error", "help-button", "leverage-button",
   "main-menu-button", "mode-select", "game-shell",
   "final-waiting-overlay", "final-waiting-title", "final-waiting-missing",
@@ -52,6 +52,7 @@ function buildLines() {
 
 const LINE_DEFINITIONS = buildLines();
 const TEST_PLAYER_NAME = "TEST1129";
+const EMPTY_PLAYER_DISPLAY_NAME = "-沒輸入名稱-";
 const TEST_SCENARIOS = Object.freeze({
   1: Object.freeze({ description: "萬子九張、聽牌、首次補牌成功", suit: "wan", bonusBehavior: "FIRST_HIT" }),
   2: Object.freeze({ description: "條子九張、聽牌、三次補牌失敗", suit: "suo", bonusBehavior: "FIRST_THREE_MISS" }),
@@ -984,10 +985,18 @@ function renderProgress() {
   return getProgress().map(item => `<div class="progress-item${item.done ? " done" : ""}"><b>${item.label}</b><span>${item.value}</span></div>`).join("");
 }
 
+function getRoundPointColorClass(points) {
+  if (points < 0) return "hud-score-negative";
+  if (points >= 70) return "hud-score-purple";
+  if (points >= 50) return "hud-score-red";
+  if (points >= 20) return "hud-score-orange";
+  return "hud-score-gold";
+}
+
 function updateHUD() {
   if (!game) return;
   elements.totalScore.textContent = game.score;
-  elements.roundsDisplay.textContent = attemptDisplay();
+  elements.roundsDisplay.textContent = attemptDisplay().replace(/\s+/g, "");
   const rawPoints = game.round?.rawPoints ?? 0;
   const multiplier = game.round?.finalMultiplier ?? 1;
   const displayedRoundPoints = rawPoints * multiplier;
@@ -998,10 +1007,9 @@ function updateHUD() {
     void elements.roundScore.offsetWidth;
     elements.roundScore.classList.add("score-refresh");
   }
-  elements.roundScore.classList.toggle("negative", displayedRoundPoints < 0);
+  elements.roundScore.classList.remove("hud-score-gold", "hud-score-orange", "hud-score-red", "hud-score-purple", "hud-score-negative");
+  elements.roundScore.classList.add(getRoundPointColorClass(displayedRoundPoints));
   elements.playerDisplay.textContent = game.playerName;
-  const config = GAME_MODE_CONFIG[game.mode];
-  elements.modeDisplay.textContent = config.shortLabel;
   const operationLocked = game.state !== GAME_STATES.DRAWING || game.busy || game.uiOverlayOpen;
   [elements.helpButton, elements.mainMenuButton]
     .forEach(button => { button.disabled = operationLocked; });
@@ -1195,15 +1203,13 @@ function resetGame() {
 
 function selectMode(mode) {
   if (!GAME_MODE_CONFIG[mode]) return;
-  const playerName = elements.playerNameInput.value.trim().slice(0, 12);
-  if (!playerName) {
-    elements.playerNameError.textContent = "請先輸入玩家名稱";
-    elements.playerNameInput.focus();
-    return;
+  const enteredPlayerName = elements.playerNameInput.value.trim().slice(0, 12);
+  const playerName = enteredPlayerName || EMPTY_PLAYER_DISPLAY_NAME;
+  if (enteredPlayerName) {
+    elements.playerNameInput.value = enteredPlayerName;
+    savePlayerName(enteredPlayerName);
   }
-  elements.playerNameInput.value = playerName;
   elements.playerNameError.textContent = "";
-  savePlayerName(playerName);
   game = freshGameState(mode, playerName);
   elements.modeSelect.classList.add("hidden");
   elements.gameShell.classList.remove("hidden");
@@ -1216,7 +1222,7 @@ function showModeSelect() {
   closeBonusModal();
   elements.gameShell.classList.add("hidden");
   elements.modeSelect.classList.remove("hidden");
-  elements.playerNameInput.value = game.playerName || loadPlayerName();
+  elements.playerNameInput.value = game.playerName === EMPTY_PLAYER_DISPLAY_NAME ? "" : (game.playerName || loadPlayerName());
   elements.playerNameError.textContent = "";
 }
 
@@ -1247,7 +1253,7 @@ document.querySelectorAll("[data-mode]").forEach(button => button.addEventListen
 elements.playerNameInput.addEventListener("input", () => {
   elements.playerNameError.textContent = "";
   const playerName = elements.playerNameInput.value.trim().slice(0, 12);
-  savePlayerName(playerName);
+  if (playerName) savePlayerName(playerName);
 });
 game = freshGameState(null, loadPlayerName());
 showModeSelect();
